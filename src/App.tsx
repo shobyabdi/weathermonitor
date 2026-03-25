@@ -32,7 +32,10 @@ function App() {
   // Data hooks
   const { alerts, lastUpdate: alertsLastUpdate } = useWeatherAlerts();
   const { storms } = useTropical();
-  const { radarData } = useRadar();
+  const { frames: radarFrames, host: radarHost } = useRadar();
+  const radarData = radarFrames.length > 0
+    ? { generated: 0, host: radarHost, radar: { past: radarFrames, nowcast: [] } }
+    : null;
   const { earthquakes } = useEarthquakes();
   const { wildfires } = useWildfires();
 
