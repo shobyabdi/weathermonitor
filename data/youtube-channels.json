@@ -1,0 +1,162 @@
+[
+  {
+    "id": "UCo3_HUlB5fjZWQDNLQK53rg",
+    "name": "The Weather Channel",
+    "category": "broadcast",
+    "location_hint": "national",
+    "lat": 39.5,
+    "lon": -98.35
+  },
+  {
+    "id": "UCrsNpQaWYs3RcMr8k-5CW2A",
+    "name": "AccuWeather",
+    "category": "broadcast",
+    "location_hint": "national",
+    "lat": 40.79,
+    "lon": -77.86
+  },
+  {
+    "id": "UCEKbOl8mJKLmh5CtFGy-xKw",
+    "name": "NWS National Weather Service",
+    "category": "government",
+    "location_hint": "national",
+    "lat": 38.89,
+    "lon": -77.03
+  },
+  {
+    "id": "UCcCzPEMZGkJmRx44a8RO4dQ",
+    "name": "National Hurricane Center (NHC)",
+    "category": "government",
+    "location_hint": "atlantic_pacific",
+    "lat": 25.77,
+    "lon": -80.19
+  },
+  {
+    "id": "UC3OexsUPcHsXtPMbNBaQXxg",
+    "name": "Reed Timmer - Storm Chaser",
+    "category": "storm_chaser",
+    "location_hint": "great_plains",
+    "lat": 37.0,
+    "lon": -98.0
+  },
+  {
+    "id": "UCe5FNQnEh4M5HfV0CDwc3wg",
+    "name": "TornadoVideos.net",
+    "category": "storm_chaser",
+    "location_hint": "great_plains",
+    "lat": 35.5,
+    "lon": -97.5
+  },
+  {
+    "id": "UCcKMSKgBQEAEnbIHGUmTFtA",
+    "name": "Pecos Hank",
+    "category": "storm_chaser",
+    "location_hint": "great_plains",
+    "lat": 35.0,
+    "lon": -99.0
+  },
+  {
+    "id": "UCsSwkgM0y4fR0mRGC9GIv8w",
+    "name": "Mike's Weather Page",
+    "category": "storm_chaser",
+    "location_hint": "southeast_us",
+    "lat": 28.0,
+    "lon": -82.5
+  },
+  {
+    "id": "UCWfP-oN9GVSwLFoOzVQ0sCw",
+    "name": "NWS Miami / South Florida",
+    "category": "government",
+    "location_hint": "south_florida",
+    "lat": 25.75,
+    "lon": -80.38
+  },
+  {
+    "id": "UC8URCe7Q_j7zJFBY6xhPpug",
+    "name": "NWS New Orleans / Baton Rouge",
+    "category": "government",
+    "location_hint": "gulf_coast",
+    "lat": 29.95,
+    "lon": -90.07
+  },
+  {
+    "id": "UCvuCU_PL6vQNE2P7o-7YKXA",
+    "name": "NWS Norman Oklahoma",
+    "category": "government",
+    "location_hint": "great_plains",
+    "lat": 35.22,
+    "lon": -97.44
+  },
+  {
+    "id": "UCYXuZaFWUbXKJQ2M8FIXi6g",
+    "name": "Jeff Piotrowski Storm Chasing",
+    "category": "storm_chaser",
+    "location_hint": "great_plains",
+    "lat": 36.15,
+    "lon": -95.99
+  },
+  {
+    "id": "UCZupgkMa8OlH5XijPxoUqSA",
+    "name": "Weather Nation",
+    "category": "broadcast",
+    "location_hint": "national",
+    "lat": 44.98,
+    "lon": -93.27
+  },
+  {
+    "id": "UC5BTBPBuVkf6HUcbFv4bbUw",
+    "name": "Severe Studios Storm Chasing",
+    "category": "storm_chaser",
+    "location_hint": "great_plains",
+    "lat": 37.68,
+    "lon": -97.34
+  },
+  {
+    "id": "UCUjdyQjBcEDxkN-8x3kD-Tg",
+    "name": "Dan Robinson / Storm Highway",
+    "category": "storm_chaser",
+    "location_hint": "midwest",
+    "lat": 38.7,
+    "lon": -90.2
+  },
+  {
+    "id": "UCrP-TodNMPoYiJiCJDpLsyg",
+    "name": "Jonathan Petramala Weather",
+    "category": "storm_chaser",
+    "location_hint": "southeast_us",
+    "lat": 33.75,
+    "lon": -84.39
+  },
+  {
+    "id": "UCTiL1q9uat3wfGn5pOdOSag",
+    "name": "TWC Live Radar",
+    "category": "broadcast",
+    "location_hint": "national",
+    "lat": 33.64,
+    "lon": -84.43
+  },
+  {
+    "id": "UCHCcRGlQFLvKLtHhL3c0WBg",
+    "name": "WeatherBrains Podcast",
+    "category": "educational",
+    "location_hint": "national",
+    "lat": 34.73,
+    "lon": -86.59
+  },
+  {
+    "id": "UCNifvFWqvY-oGNFTGbL5MaA",
+    "name": "Tomer Burg / College of DuPage Wx",
+    "category": "educational",
+    "location_hint": "midwest",
+    "lat": 41.85,
+    "lon": -88.01
+  },
+  {
+    "id": "UCbXQ_8nW3cKl_OPvnRFcT0A",
+    "name": "Patrick Marsh - SPC Meteorologist",
+    "category": "government",
+    "location_hint": "great_plains",
+    "lat": 35.18,
+    "lon": -97.44
+  }
+]
