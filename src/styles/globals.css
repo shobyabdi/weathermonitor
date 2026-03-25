@@ -1,0 +1,339 @@
+/* ============================================================
+   CSS Reset / Normalize
+   ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Scrollbar Styling
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-primary);
+}
+
+/* ============================================================
+   MapLibre GL overrides
+   ============================================================ */
+.maplibregl-map {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.maplibregl-ctrl-attrib {
+  font-family: var(--font-body);
+  font-size: 10px;
+  background: rgba(10, 15, 26, 0.8) !important;
+  color: var(--text-secondary) !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--text-secondary) !important;
+}
+
+.maplibregl-popup-content {
+  background: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  font-family: var(--font-body) !important;
+  font-size: 12px !important;
+  padding: 10px 14px !important;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: var(--border) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+/* ============================================================
+   Utility: Severity Text Colors
+   ============================================================ */
+.text-critical {
+  color: var(--accent-critical);
+}
+
+.text-high {
+  color: var(--accent-high);
+}
+
+.text-medium {
+  color: var(--accent-medium);
+}
+
+.text-low {
+  color: var(--accent-low);
+}
+
+.text-info {
+  color: var(--accent-info);
+}
+
+.text-tropical {
+  color: var(--accent-tropical);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes pulse-shadow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 32, 32, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 32, 32, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 32, 32, 0);
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ============================================================
+   Button Reset
+   ============================================================ */
+button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-low);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   Link Reset
+   ============================================================ */
+a {
+  color: var(--accent-low);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: var(--text-primary);
+}
+
+/* ============================================================
+   Panel Base Styles
+   ============================================================ */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.panel-header {
+  font-family: var(--font-header);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+.card + .card {
+  margin-top: 6px;
+}
+
+/* ============================================================
+   Live Badge
+   ============================================================ */
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-critical);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.alert-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-family: var(--font-numeric);
+  font-size: 10px;
+  font-weight: 700;
+  animation: pulse-shadow 2s ease infinite;
+}
+
+.alert-badge.critical {
+  background: var(--accent-critical);
+  color: #fff;
+}
+
+.alert-badge.high {
+  background: var(--accent-high);
+  color: #fff;
+}
+
+.alert-badge.medium {
+  background: var(--accent-medium);
+  color: #000;
+}
+
+.alert-badge.low {
+  background: var(--accent-low);
+  color: #000;
+}
+
+/* ============================================================
+   Numeric / Mono Values
+   ============================================================ */
+.mono {
+  font-family: var(--font-numeric);
+}
+
+.header-font {
+  font-family: var(--font-header);
+}
+
+/* ============================================================
+   Divider
+   ============================================================ */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
+
+/* ============================================================
+   Skeleton / Loading State
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--border) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   Scrollable containers
+   ============================================================ */
+.scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ============================================================
+   Severity Accent Borders
+   ============================================================ */
+.border-critical { border-left: 3px solid var(--accent-critical); }
+.border-high      { border-left: 3px solid var(--accent-high); }
+.border-medium    { border-left: 3px solid var(--accent-medium); }
+.border-low       { border-left: 3px solid var(--accent-low); }
+.border-info      { border-left: 3px solid var(--accent-info); }

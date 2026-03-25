@@ -1,0 +1,22 @@
+:root {
+  --bg-primary: #0a0f1a;
+  --bg-panel: #0d1525;
+  --bg-card: #111d2e;
+  --border: #1a2d44;
+  --text-primary: #d8eaf8;
+  --text-secondary: #6a90b8;
+  --accent-critical: #ff2020;
+  --accent-high: #ff7b00;
+  --accent-medium: #f5c518;
+  --accent-low: #4ab8ff;
+  --accent-info: #60d080;
+  --accent-tropical: #c040ff;
+  --radar-light: #00e060;
+  --radar-moderate: #e0e000;
+  --radar-heavy: #ff8000;
+  --radar-extreme: #ff0000;
+  --radar-hail: #ff00ff;
+  --font-header: 'Chakra Petch', sans-serif;
+  --font-body: 'IBM Plex Mono', monospace;
+  --font-numeric: 'JetBrains Mono', monospace;
+}
