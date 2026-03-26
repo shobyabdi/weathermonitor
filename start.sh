@@ -11,7 +11,18 @@ if [ -f .env ]; then
   set +o allexport
 fi
 
-# Check Python deps
+# Set up Python virtual environment
+VENV_DIR=".venv"
+if [ ! -d "$VENV_DIR" ]; then
+  echo "Creating Python virtual environment..."
+  python3 -m venv "$VENV_DIR"
+fi
+
+# Activate venv
+# shellcheck disable=SC1091
+source "$VENV_DIR/bin/activate"
+
+# Install Python deps if needed
 if ! python3 -c "import fastapi, uvicorn" 2>/dev/null; then
   echo "Installing Python dependencies..."
   pip3 install -r requirements.txt
