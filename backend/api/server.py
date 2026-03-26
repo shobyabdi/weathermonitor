@@ -25,6 +25,46 @@ from ingest.news import fetch_rss_feed
 from intelligence.claude_client import generate_brief, analyze_storm
 from intelligence.prompts import GLOBAL_BRIEF_PROMPT, STORM_ANALYSIS_PROMPT
 
+try:
+    from ingest.spc import fetch_spc_outlooks
+except ImportError:
+    fetch_spc_outlooks = None
+
+try:
+    from ingest.swpc import fetch_space_weather
+except ImportError:
+    fetch_space_weather = None
+
+try:
+    from ingest.tides import fetch_tidal_data
+except ImportError:
+    fetch_tidal_data = None
+
+try:
+    from ingest.seismic_eu import fetch_emsc_earthquakes
+except ImportError:
+    fetch_emsc_earthquakes = None
+
+try:
+    from ingest.volcanoes import fetch_volcanic_activity
+except ImportError:
+    fetch_volcanic_activity = None
+
+try:
+    from ingest.airnow import fetch_airnow
+except ImportError:
+    fetch_airnow = None
+
+try:
+    from ingest.glofas import fetch_glofas_alerts
+except ImportError:
+    fetch_glofas_alerts = None
+
+try:
+    from ingest.copernicus_marine import fetch_sst_anomaly
+except ImportError:
+    fetch_sst_anomaly = None
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
