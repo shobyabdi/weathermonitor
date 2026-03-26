@@ -186,7 +186,9 @@ export type LayerId =
   | 'sea-surface-temp' | 'snowpack' | 'drought' | 'temp-anomaly'
   | 'precip-anomaly' | 'tropical-tracks' | 'storm-surge'
   | 'fire-weather' | 'wind-field' | 'cloud-cover' | 'pressure'
-  | 'infrastructure' | 'stations' | 'webcams' | 'hotspots' | 'convergence';
+  | 'infrastructure' | 'stations' | 'webcams' | 'hotspots' | 'convergence'
+  | 'spc-outlooks' | 'space-weather' | 'tides' | 'volcanoes'
+  | 'sst-anomaly' | 'global-floods';
 
 export interface LayerConfig {
   id: LayerId;

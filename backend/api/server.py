@@ -370,6 +370,106 @@ async def ai_analyze(request: Request) -> dict:
         }
 
 
+@app.get("/api/spc-outlooks")
+def get_spc_outlooks() -> dict:
+    if not fetch_spc_outlooks:
+        raise HTTPException(status_code=503, detail="SPC module unavailable")
+    try:
+        return fetch_spc_outlooks()
+    except Exception as e:
+        logger.error(f"GET /api/spc-outlooks error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch SPC outlooks")
+
+@app.get("/api/space-weather")
+def get_space_weather() -> dict:
+    if not fetch_space_weather:
+        raise HTTPException(status_code=503, detail="SWPC module unavailable")
+    try:
+        return fetch_space_weather()
+    except Exception as e:
+        logger.error(f"GET /api/space-weather error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch space weather data")
+
+@app.get("/api/tides")
+def get_tides(stations: Optional[str] = Query(None, description="Comma-separated station IDs")) -> dict:
+    if not fetch_tidal_data:
+        raise HTTPException(status_code=503, detail="Tides module unavailable")
+    try:
+        station_list = stations.split(",") if stations else None
+        data = fetch_tidal_data(station_ids=station_list)
+        return {"count": len(data), "stations": data}
+    except Exception as e:
+        logger.error(f"GET /api/tides error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch tidal data")
+
+@app.get("/api/earthquakes/eu")
+def get_emsc_earthquakes(
+    min_magnitude: float = Query(2.5, ge=0.0, le=10.0),
+    hours: int = Query(24, ge=1, le=168),
+) -> dict:
+    if not fetch_emsc_earthquakes:
+        raise HTTPException(status_code=503, detail="EMSC module unavailable")
+    try:
+        quakes = fetch_emsc_earthquakes(min_magnitude=min_magnitude, hours=hours)
+        return {"count": len(quakes), "earthquakes": quakes}
+    except Exception as e:
+        logger.error(f"GET /api/earthquakes/eu error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch EMSC earthquake data")
+
+@app.get("/api/volcanoes")
+def get_volcanoes() -> dict:
+    if not fetch_volcanic_activity:
+        raise HTTPException(status_code=503, detail="Volcanoes module unavailable")
+    try:
+        activity = fetch_volcanic_activity()
+        return {"count": len(activity), "activity": activity}
+    except Exception as e:
+        logger.error(f"GET /api/volcanoes error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch volcanic activity")
+
+@app.get("/api/air-quality/us")
+def get_airnow(
+    lat: float = Query(39.5),
+    lon: float = Query(-98.35),
+    distance: int = Query(25),
+) -> dict:
+    if not fetch_airnow:
+        raise HTTPException(status_code=503, detail="AirNow module unavailable")
+    try:
+        data = fetch_airnow(lat=lat, lon=lon, distance=distance)
+        return {"count": len(data), "observations": data}
+    except Exception as e:
+        logger.error(f"GET /api/air-quality/us error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch AirNow data")
+
+@app.get("/api/floods/global")
+def get_glofas() -> dict:
+    if not fetch_glofas_alerts:
+        raise HTTPException(status_code=503, detail="GloFAS module unavailable")
+    try:
+        alerts = fetch_glofas_alerts()
+        return {"count": len(alerts), "alerts": alerts}
+    except Exception as e:
+        logger.error(f"GET /api/floods/global error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch global flood alerts")
+
+@app.get("/api/sst-anomaly")
+def get_sst_anomaly(
+    lat_min: float = Query(15.0),
+    lat_max: float = Query(50.0),
+    lon_min: float = Query(-100.0),
+    lon_max: float = Query(-60.0),
+) -> dict:
+    if not fetch_sst_anomaly:
+        raise HTTPException(status_code=503, detail="SST module unavailable")
+    try:
+        data = fetch_sst_anomaly(lat_min=lat_min, lat_max=lat_max, lon_min=lon_min, lon_max=lon_max)
+        return data
+    except Exception as e:
+        logger.error(f"GET /api/sst-anomaly error: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch SST anomaly data")
+
+
 @app.get("/api/baseline")
 def get_baseline() -> dict:
     return {
