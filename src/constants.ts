@@ -26,6 +26,12 @@ export const WEATHER_LAYERS: LayerConfig[] = [
   { id: 'webcams',          label: 'Storm Webcams',           default: false, zoomMin: 5 },
   { id: 'hotspots',         label: 'Weather Hotspots',        default: true,  zoomMin: 0 },
   { id: 'convergence',      label: 'Convergence Zones',       default: true,  zoomMin: 0 },
+  { id: 'spc-outlooks',     label: 'SPC Storm Outlooks',      default: true,  zoomMin: 0 },
+  { id: 'space-weather',    label: 'Space Weather / Kp',      default: false, zoomMin: 0 },
+  { id: 'tides',            label: 'Tidal Gauges',            default: false, zoomMin: 4 },
+  { id: 'volcanoes',        label: 'Volcanic Activity',       default: false, zoomMin: 0 },
+  { id: 'sst-anomaly',      label: 'Sea Surface Temp Anomaly', default: false, zoomMin: 0 },
+  { id: 'global-floods',    label: 'Global Flood Alerts',     default: false, zoomMin: 0 },
 ];
 
 export const REGIONS: Region[] = [
@@ -43,17 +49,21 @@ export const STORM_SCORE_THRESHOLD = 60;
 export const ALERT_THRESHOLD = 70;
 
 export const DATA_FRESHNESS_CONFIG: Record<string, number> = {
-  'NWS Alerts':  2  * 60 * 1000,
-  'Radar':       5  * 60 * 1000,
-  'Lightning':   1  * 60 * 1000,
-  'Earthquakes': 5  * 60 * 1000,
-  'Wildfires':   60 * 60 * 1000,
-  'NHC':         30 * 60 * 1000,
-  'Open-Meteo':  60 * 60 * 1000,
-  'NDBC Buoys':  60 * 60 * 1000,
-  'USGS Flow':   15 * 60 * 1000,
-  'OpenAQ':      30 * 60 * 1000,
-  'YouTube':     5  * 60 * 1000,
+  'NWS Alerts':    2  * 60 * 1000,
+  'Radar':         5  * 60 * 1000,
+  'Lightning':     1  * 60 * 1000,
+  'Earthquakes':   5  * 60 * 1000,
+  'Wildfires':     60 * 60 * 1000,
+  'NHC':           30 * 60 * 1000,
+  'Open-Meteo':    60 * 60 * 1000,
+  'NDBC Buoys':    60 * 60 * 1000,
+  'USGS Flow':     15 * 60 * 1000,
+  'OpenAQ':        30 * 60 * 1000,
+  'YouTube':       5  * 60 * 1000,
+  'SPC Outlooks':  30 * 60 * 1000,
+  'Space Weather': 15 * 60 * 1000,
+  'Tidal Gauges':  30 * 60 * 1000,
+  'Volcanic Activity': 60 * 60 * 1000,
 };
 
 export const MONITORED_REGIONS = [
