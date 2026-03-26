@@ -14,7 +14,7 @@ fi
 # Check Python deps
 if ! python3 -c "import fastapi, uvicorn" 2>/dev/null; then
   echo "Installing Python dependencies..."
-  pip install -r requirements.txt
+  pip3 install -r requirements.txt
 fi
 
 # Check Node deps
