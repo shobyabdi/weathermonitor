@@ -1,37 +1,51 @@
-import anthropic
 import json
 import logging
-from typing import Optional
+import re
+import requests
 
 logger = logging.getLogger(__name__)
 
-_client: Optional[anthropic.Anthropic] = None
+OLLAMA_URL = "http://localhost:11434/api/chat"
+OLLAMA_MODEL = "qwen3.5:latest"
 
-def get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic()
-    return _client
+
+def _chat(prompt: str, max_tokens: int = 1000) -> str:
+    """Send a prompt to Ollama and return the response text."""
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "think": False,  # disable qwen3 extended thinking for fast, direct output
+        "options": {"num_predict": max_tokens},
+    }
+    response = requests.post(OLLAMA_URL, json=payload, timeout=120)
+    response.raise_for_status()
+    text = response.json()["message"]["content"]
+    # Strip any residual <think>...</think> blocks just in case
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    return text
+
+
+def _extract_json(text: str) -> dict:
+    """Extract the first JSON object from a response string."""
+    text = text.strip()
+    # Strip markdown code fences if present
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?", "", text).rstrip("`").strip()
+    # Find the first {...} block in case there's surrounding prose
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        text = match.group(0)
+    return json.loads(text)
+
 
 def analyze_storm(prompt: str) -> dict:
-    """Call Claude and parse structured JSON response."""
+    """Call Ollama and parse structured JSON response."""
     try:
-        client = get_client()
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        text = message.content[0].text
-        # Strip markdown code blocks if present
-        text = text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        return json.loads(text)
+        text = _chat(prompt, max_tokens=1000)
+        return _extract_json(text)
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse Claude JSON response: {e}")
+        logger.error(f"Failed to parse Ollama JSON response: {e}")
         return {
             "summary": "Analysis unavailable",
             "confidence": "low",
@@ -39,28 +53,24 @@ def analyze_storm(prompt: str) -> dict:
             "recommendation": "Monitor conditions closely",
             "threat_type": "other",
             "severity": "info",
-            "affected_region": "Unknown"
+            "affected_region": "Unknown",
         }
     except Exception as e:
-        logger.error(f"Claude API error: {e}")
+        logger.error(f"Ollama API error: {e}")
         raise
 
+
 def generate_brief(prompt: str) -> str:
-    """Call Claude for the global weather brief (plain text)."""
+    """Call Ollama for the global weather brief (plain text)."""
     try:
-        client = get_client()
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return message.content[0].text
+        return _chat(prompt, max_tokens=500)
     except Exception as e:
-        logger.error(f"Claude brief generation error: {e}")
+        logger.error(f"Ollama brief generation error: {e}")
         return "Weather brief temporarily unavailable. Please check individual data sources."
 
+
 def classify_headline(headline: str) -> dict:
-    """Classify a weather headline using Claude."""
+    """Classify a weather headline using Ollama."""
     prompt = f'''Classify this weather headline. Return ONLY valid JSON:
 {{
   "category": "tornado|hurricane|flood|fire|winter|heat|cold|severe|drought|earthquake|volcano|airquality|other",
@@ -72,18 +82,8 @@ def classify_headline(headline: str) -> dict:
 Headline: "{headline}"'''
 
     try:
-        client = get_client()
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        text = message.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-        return json.loads(text)
+        text = _chat(prompt, max_tokens=200)
+        return _extract_json(text)
     except Exception as e:
         logger.error(f"Classification error: {e}")
         return {"category": "other", "severity": "info", "confidence": 0.0}

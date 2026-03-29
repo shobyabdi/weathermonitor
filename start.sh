@@ -12,27 +12,10 @@ if [ -f .env ]; then
 fi
 
 # Set up Python virtual environment
-# pydantic-core requires Python <= 3.13; prefer a compatible version
 VENV_DIR=".venv"
 if [ ! -d "$VENV_DIR" ]; then
   echo "Creating Python virtual environment..."
-  PYTHON_BIN=""
-  for candidate in python3.13 python3.12 python3.11 python3; do
-    if command -v "$candidate" &>/dev/null; then
-      # Accept 3.11, 3.12, or 3.13
-      if "$candidate" -c "import sys; exit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)" 2>/dev/null; then
-        PYTHON_BIN="$candidate"
-        break
-      fi
-    fi
-  done
-  if [ -z "$PYTHON_BIN" ]; then
-    echo "ERROR: Python 3.11–3.13 is required but not found."
-    echo "Install it with: brew install python@3.13"
-    exit 1
-  fi
-  echo "Using $PYTHON_BIN"
-  "$PYTHON_BIN" -m venv "$VENV_DIR"
+  python3.13 -m venv "$VENV_DIR"
 fi
 
 # Activate venv

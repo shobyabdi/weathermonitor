@@ -11,6 +11,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true,   // expose on local network (0.0.0.0)
+    allowedHosts: ['yu-catadioptric-vida.ngrok-free.dev'],
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

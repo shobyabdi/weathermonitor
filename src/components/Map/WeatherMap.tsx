@@ -1,88 +1,142 @@
 /**
  * WeatherMap.tsx
- * Main MapLibre GL JS map component for the Weather Intelligence Dashboard.
- *
- * Renders:
- *  - Carto dark basemap
- *  - RainViewer radar tiles
- *  - NWS alert polygons (colour-coded by event type)
- *  - Earthquake circles
- *  - Wildfire dots
- *  - Tropical storm tracks / centres
- *  - Absolute-positioned HUD overlays
- *  - RadarPlayer timeline at the bottom
+ * Embeds the Windy.com interactive weather map via iframe.
+ * Streamer pins, storm badge, and Claude insight overlay on top of the iframe.
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
-
-import type {
-  WeatherAlert,
-  Earthquake,
-  Wildfire,
-  TropicalStorm,
-  RadarFrame,
-  LayerId,
-  Region,
-  ClaudeInsight,
-} from '@/types';
-
-import { addAlertsLayer, updateAlertsLayer, removeAlertsLayer } from './layers/AlertsLayer';
-import { addRadarLayer, updateRadarTime, removeRadarLayer } from './layers/RadarLayer';
-import { addEarthquakeLayer, updateEarthquakeLayer, removeEarthquakeLayer } from './layers/EarthquakeLayer';
-import { addFireLayer, updateFireLayer, removeFireLayer } from './layers/FireLayer';
-import { addTropicalLayer, updateTropicalLayer, removeTropicalLayer } from './layers/TropicalLayer';
-import { RadarPlayer } from './RadarPlayer';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import type { WeatherAlert, Region, ClaudeInsight } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface WeatherMapProps {
   alerts: WeatherAlert[];
-  earthquakes: Earthquake[];
-  wildfires: Wildfire[];
-  tropicalStorms: TropicalStorm[];
-  radarFrames: RadarFrame[];
-  radarHost: string;
-  activeLayers: Set<LayerId>;
-  selectedAlert: WeatherAlert | null;
-  onAlertClick: (alert: WeatherAlert) => void;
   region: Region;
   insight: ClaudeInsight | null;
+  selectedAlert: WeatherAlert | null;
+  onAlertClick: (alert: WeatherAlert) => void;
+  activeLayers?: Set<string>;
+  earthquakes?: unknown[];
+  wildfires?: unknown[];
+  tropicalStorms?: unknown[];
+  radarFrames?: unknown[];
+  radarHost?: string;
 }
 
-// ── MapLibre style (Carto dark, no API key needed) ────────────────────────────
+// ── Streamer definitions (approximate home-base / typical chase area) ──────────
 
-const MAP_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    'carto-light': {
-      type: 'raster',
-      tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    },
+interface Streamer {
+  id: string;
+  name: string;
+  initials: string;
+  color: string;
+  lat: number;
+  lon: number;
+  embedSrc: string;
+  ytUrl: string;
+}
+
+const STREAMERS: Streamer[] = [
+  {
+    id: 'reed',
+    name: 'Reed Timmer',
+    initials: 'RT',
+    color: '#ff4444',
+    lat: 35.22,
+    lon: -97.44, // Norman, OK
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCV6hWxB0-u_IX7e-h4fEBAw&autoplay=1&rel=0',
+    ytUrl: 'https://www.youtube.com/@ReedTimmerWx/streams',
   },
-  layers: [
-    {
-      id: 'carto-light',
-      type: 'raster',
-      source: 'carto-light',
-    },
-  ],
-  glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
-};
+  {
+    id: 'ryan',
+    name: "Ryan Hall Y'all",
+    initials: 'RH',
+    color: '#4488ff',
+    lat: 34.73,
+    lon: -86.59, // Huntsville, AL
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCJHAT3Uvv-g3I8H3GhHWV7w&autoplay=1&rel=0',
+    ytUrl: 'https://www.youtube.com/@RyanHallYall/streams',
+  },
+  {
+    id: 'connor',
+    name: 'Connor Croff',
+    initials: 'CC',
+    color: '#44dd88',
+    lat: 37.68,
+    lon: -97.34, // Wichita, KS — Connor's typical area
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCb0U1g5r4kH_NDMGiGRhysA&autoplay=1&rel=0',
+    ytUrl: 'https://www.youtube.com/@ConnorCroff',
+  },
+  {
+    id: 'live-storms',
+    name: 'Live Storms Media',
+    initials: 'LS',
+    color: '#ff8800',
+    lat: 36.15,
+    lon: -95.99, // Tulsa, OK
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UC1nJElGcVcTpeZJVyxEbzJw&autoplay=1&rel=0',
+    ytUrl: 'https://www.youtube.com/@LiveStormsMedia',
+  },
+  {
+    id: 'brandon',
+    name: 'WxChasing',
+    initials: 'WX',
+    color: '#cc44ff',
+    lat: 30.45,
+    lon: -91.19, // Baton Rouge, LA — Brandon Clement's base
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCD3KREyo3IqCLBC-4khGgIw&autoplay=1&rel=0',
+    ytUrl: 'https://www.youtube.com/@WxChasing',
+  },
+];
+
+// ── Mercator lat/lon → pixel ──────────────────────────────────────────────────
+
+function latLonToPixel(
+  lat: number,
+  lon: number,
+  centerLat: number,
+  centerLon: number,
+  zoom: number,
+  w: number,
+  h: number,
+): { x: number; y: number } {
+  const scale = 256 * Math.pow(2, zoom);
+  const dLon = lon - centerLon;
+  const x = w / 2 + (dLon / 360) * scale;
+  const latRad = (lat * Math.PI) / 180;
+  const cLatRad = (centerLat * Math.PI) / 180;
+  const yM = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
+  const cYM = Math.log(Math.tan(Math.PI / 4 + cLatRad / 2));
+  const y = h / 2 - ((yM - cYM) / (2 * Math.PI)) * scale;
+  return { x, y };
+}
+
+// ── Windy embed URL builder ────────────────────────────────────────────────────
+
+function buildWindyUrl(region: Region, overlay = 'radar'): string {
+  const [lon, lat] = region.center;
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    zoom: String(region.zoom),
+    level: 'surface',
+    overlay,
+    product: 'ecmwf',
+    menu: '',
+    message: '',
+    marker: '',
+    calendar: 'now',
+    pressure: '',
+    type: 'map',
+    location: 'coordinates',
+    metricWind: 'default',
+    metricTemp: 'default',
+    radarRange: '-1',
+  });
+  return `https://embed.windy.com/embed2.html?${params.toString()}`;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatTimestamp(d: Date): string {
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
 
 function severityBadgeColor(severity: string): string {
   switch (severity) {
@@ -94,333 +148,266 @@ function severityBadgeColor(severity: string): string {
   }
 }
 
-// ── Fake ambient weather strip (placeholder until real data wired) ─────────────
+// ── Overlay selectors ─────────────────────────────────────────────────────────
 
-const AMBIENT = { temp: 72, windSpeed: 18, windDir: 'SW' };
-
-// ── YouTube stream thumbnails (placeholder) ───────────────────────────────────
-
-const YT_STREAMS = [
-  { id: 'yt1', title: 'Gulf Coast Live', color: '#0d2035' },
-  { id: 'yt2', title: 'Tornado Alley', color: '#1a0d2e' },
-  { id: 'yt3', title: 'Atlantic Basin', color: '#0d2035' },
+const OVERLAYS = [
+  { id: 'radar',  label: 'Radar'  },
+  { id: 'wind',   label: 'Wind'   },
+  { id: 'rain',   label: 'Rain'   },
+  { id: 'temp',   label: 'Temp'   },
+  { id: 'clouds', label: 'Clouds' },
+  { id: 'cape',   label: 'CAPE'   },
 ];
+
+// ── StreamerPin ───────────────────────────────────────────────────────────────
+
+const StreamerPin: React.FC<{
+  streamer: Streamer;
+  x: number;
+  y: number;
+  expanded: boolean;
+  onToggle: () => void;
+}> = ({ streamer, x, y, expanded, onToggle }) => {
+  const PIN = 36;
+  const POPUP_W = 280;
+  const POPUP_H = 168;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: x - PIN / 2,
+        top: y - PIN / 2,
+        zIndex: 30,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        pointerEvents: 'auto',
+      }}
+    >
+      {/* Expanded YouTube embed popup */}
+      {expanded && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: PIN + 6,
+            left: -(POPUP_W / 2 - PIN / 2),
+            width: POPUP_W,
+            height: POPUP_H + 28,
+            background: '#0a0f1a',
+            border: `1px solid ${streamer.color}`,
+            borderRadius: 8,
+            overflow: 'hidden',
+            boxShadow: `0 4px 24px rgba(0,0,0,0.7)`,
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              padding: '4px 8px',
+              background: 'rgba(0,0,0,0.6)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <span style={{ fontFamily: 'var(--font-header)', fontSize: 10, color: streamer.color, fontWeight: 700 }}>
+              ▶ {streamer.name.toUpperCase()}
+            </span>
+            <a
+              href={streamer.ytUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: '#aac4dc', textDecoration: 'none' }}
+              onClick={e => e.stopPropagation()}
+            >
+              Open ↗
+            </a>
+          </div>
+          <iframe
+            src={streamer.embedSrc}
+            width={POPUP_W}
+            height={POPUP_H}
+            style={{ display: 'block', border: 'none' }}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title={streamer.name}
+          />
+        </div>
+      )}
+
+      {/* Pin dot */}
+      <button
+        onClick={onToggle}
+        title={streamer.name}
+        style={{
+          width: PIN,
+          height: PIN,
+          borderRadius: '50%',
+          border: `2px solid ${streamer.color}`,
+          background: expanded ? streamer.color : 'rgba(10,15,26,0.92)',
+          color: expanded ? '#000' : streamer.color,
+          fontFamily: 'var(--font-header)',
+          fontSize: 10,
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 1,
+          boxShadow: `0 0 8px ${streamer.color}55`,
+          padding: 0,
+          lineHeight: 1,
+        }}
+      >
+        <span style={{ fontSize: 9 }}>{streamer.initials}</span>
+        {/* Pulsing LIVE dot */}
+        <span
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: '50%',
+            background: '#ff2020',
+            display: 'block',
+          }}
+        />
+      </button>
+
+      {/* Label below pin */}
+      <div
+        style={{
+          marginTop: 3,
+          background: 'rgba(10,15,26,0.82)',
+          border: `1px solid ${streamer.color}44`,
+          borderRadius: 4,
+          padding: '1px 5px',
+          fontFamily: 'var(--font-body)',
+          fontSize: 8,
+          color: streamer.color,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+        }}
+      >
+        {streamer.name}
+      </div>
+    </div>
+  );
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const WeatherMap: React.FC<WeatherMapProps> = ({
-  alerts,
-  earthquakes,
-  wildfires,
-  tropicalStorms,
-  radarFrames,
-  radarHost,
-  activeLayers,
-  selectedAlert,
-  onAlertClick,
-  region,
-  insight,
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const mapReadyRef = useRef(false);
-
-  const [radarIndex, setRadarIndex] = useState(0);
-  const [currentTime] = useState(() => new Date());
+export const WeatherMap: React.FC<WeatherMapProps> = ({ alerts, region, insight }) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [overlay, setOverlay] = useState('radar');
+  const [embedUrl, setEmbedUrl] = useState(() => buildWindyUrl(region, 'radar'));
   const [alertBadgeIndex, setAlertBadgeIndex] = useState(0);
-  const [mapZoom, setMapZoom] = useState(region.zoom);
+  const [expandedPin, setExpandedPin] = useState<string | null>(null);
+  const [containerSize, setContainerSize] = useState({ w: 900, h: 600 });
 
-  // ── initialise map ─────────────────────────────────────────────────────────
+  // Track container size for pin positioning
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: MAP_STYLE,
-      center: region.center,
-      zoom: region.zoom,
-      attributionControl: false,
+    const el = rootRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(() => {
+      setContainerSize({ w: el.offsetWidth, h: el.offsetHeight });
     });
-
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
-    map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'imperial' }), 'bottom-right');
-    map.addControl(
-      new maplibregl.AttributionControl({ compact: true }),
-      'bottom-right',
-    );
-
-    map.on('load', () => {
-      mapReadyRef.current = true;
-      mapRef.current = map;
-    });
-
-    map.on('zoom', () => {
-      setMapZoom(map.getZoom());
-    });
-
-    return () => {
-      mapReadyRef.current = false;
-      map.remove();
-      mapRef.current = null;
-    };
-    // Only run once on mount — region handled by separate effect below
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    obs.observe(el);
+    setContainerSize({ w: el.offsetWidth, h: el.offsetHeight });
+    return () => obs.disconnect();
   }, []);
 
-  // ── fly to region ──────────────────────────────────────────────────────────
+  // Rebuild embed URL when region or overlay changes
   useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.flyTo({
-      center: region.center,
-      zoom: region.zoom,
-      duration: 1400,
-      essential: true,
-    });
-  }, [region]);
+    setEmbedUrl(buildWindyUrl(region, overlay));
+    setExpandedPin(null); // close any open popup on region change
+  }, [region, overlay]);
 
-  // ── fly to selected alert ─────────────────────────────────────────────────
-  useEffect(() => {
-    if (!mapRef.current || !selectedAlert?.centroid) return;
-    mapRef.current.flyTo({
-      center: selectedAlert.centroid,
-      zoom: Math.max(mapRef.current.getZoom(), 7),
-      duration: 900,
-    });
-  }, [selectedAlert]);
-
-  // ── radar layer ────────────────────────────────────────────────────────────
-  const syncRadar = useCallback(() => {
-    const map = mapRef.current;
-    if (!map || !mapReadyRef.current) return;
-    if (!activeLayers.has('radar') || radarFrames.length === 0) {
-      removeRadarLayer(map);
-      return;
-    }
-    const frame = radarFrames[radarIndex];
-    if (!frame) return;
-    if (map.getSource('rainviewer-radar')) {
-      updateRadarTime(map, radarHost, frame.time);
-    } else {
-      addRadarLayer(map, radarHost, frame.time, 0.7);
-    }
-  }, [activeLayers, radarFrames, radarIndex, radarHost]);
-
-  useEffect(() => {
-    // Retry until map is ready
-    if (!mapReadyRef.current) {
-      const id = setTimeout(syncRadar, 500);
-      return () => clearTimeout(id);
-    }
-    syncRadar();
-  }, [syncRadar]);
-
-  // Advance to latest frame when new frames arrive
-  useEffect(() => {
-    if (radarFrames.length > 0) {
-      setRadarIndex(radarFrames.length - 1);
-    }
-  }, [radarFrames.length]);
-
-  // ── alerts layer ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReadyRef.current) return;
-    if (!activeLayers.has('alerts')) {
-      removeAlertsLayer(map);
-      return;
-    }
-    if (map.getSource('nws-alerts-source')) {
-      updateAlertsLayer(map, alerts);
-    } else {
-      addAlertsLayer(map, alerts);
-    }
-  }, [alerts, activeLayers]);
-
-  // ── earthquake layer ───────────────────────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReadyRef.current) return;
-    if (!activeLayers.has('earthquakes')) {
-      removeEarthquakeLayer(map);
-      return;
-    }
-    if (map.getSource('earthquakes-source')) {
-      updateEarthquakeLayer(map, earthquakes);
-    } else {
-      addEarthquakeLayer(map, earthquakes);
-    }
-  }, [earthquakes, activeLayers]);
-
-  // ── wildfire layer ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReadyRef.current) return;
-    if (!activeLayers.has('wildfires')) {
-      removeFireLayer(map);
-      return;
-    }
-    if (map.getSource('wildfires-source')) {
-      updateFireLayer(map, wildfires);
-    } else {
-      addFireLayer(map, wildfires);
-    }
-  }, [wildfires, activeLayers]);
-
-  // ── tropical layer ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReadyRef.current) return;
-    if (!activeLayers.has('tropical')) {
-      removeTropicalLayer(map);
-      return;
-    }
-    if (map.getSource('tropical-storms-source')) {
-      updateTropicalLayer(map, tropicalStorms);
-    } else {
-      addTropicalLayer(map, tropicalStorms);
-    }
-  }, [tropicalStorms, activeLayers]);
-
-  // ── alert click popups ─────────────────────────────────────────────────────
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapReadyRef.current) return;
-
-    const popupRef = { current: new maplibregl.Popup({ closeButton: true, maxWidth: '280px' }) };
-
-    const handleClick = (e: maplibregl.MapMouseEvent) => {
-      const features = map.queryRenderedFeatures(e.point, {
-        layers: ['nws-alerts-fill'],
-      });
-      if (!features.length) return;
-      const props = features[0].properties as Record<string, string>;
-      const hit = alerts.find((a) => a.id === props['id']);
-      if (!hit) return;
-      onAlertClick(hit);
-
-      const color = props['stroke'] ?? '#ff2020';
-      popupRef.current
-        .setLngLat(e.lngLat)
-        .setHTML(
-          `<div style="font-family:var(--font-header);color:${color};font-size:13px;font-weight:700;margin-bottom:5px">
-             ${props['event'] ?? 'Alert'}
-           </div>
-           <div style="font-family:var(--font-body);font-size:11px;color:#aac4dc;margin-bottom:4px">
-             ${props['areaDesc'] ?? ''}
-           </div>
-           <div style="font-family:var(--font-body);font-size:11px;color:#d8eaf8">
-             ${(props['headline'] ?? '').slice(0, 130)}
-           </div>`,
-        )
-        .addTo(map);
-    };
-
-    map.on('click', handleClick);
-    map.on('mouseenter', 'nws-alerts-fill', () => {
-      map.getCanvas().style.cursor = 'pointer';
-    });
-    map.on('mouseleave', 'nws-alerts-fill', () => {
-      map.getCanvas().style.cursor = '';
-    });
-
-    return () => {
-      map.off('click', handleClick);
-      popupRef.current.remove();
-    };
-  }, [alerts, onAlertClick]);
-
-  // ── rotating alert badge ───────────────────────────────────────────────────
+  // Rotating storm badge
   const severeAlerts = alerts.filter(
     (a) => a.severity === 'Extreme' || a.severity === 'Severe',
   );
-
   useEffect(() => {
     if (severeAlerts.length === 0) return;
-    const id = setInterval(() => {
-      setAlertBadgeIndex((i) => (i + 1) % severeAlerts.length);
-    }, 4000);
+    const id = setInterval(() => setAlertBadgeIndex(i => (i + 1) % severeAlerts.length), 4000);
     return () => clearInterval(id);
   }, [severeAlerts.length]);
-
   const badgeAlert = severeAlerts[alertBadgeIndex] ?? null;
 
-  // ── radar index handler ────────────────────────────────────────────────────
-  const handleRadarIndexChange = useCallback((idx: number) => {
-    setRadarIndex(Math.max(0, Math.min(idx, radarFrames.length - 1)));
-  }, [radarFrames.length]);
+  const handleOverlay = useCallback((id: string) => setOverlay(id), []);
+
+  // Compute pin pixel positions from the region's center + zoom
+  const [centerLon, centerLat] = region.center;
+  const { w, h } = containerSize;
+
+  const pins = STREAMERS.map(s => {
+    const { x, y } = latLonToPixel(s.lat, s.lon, centerLat, centerLon, region.zoom, w, h);
+    const inBounds = x > -40 && x < w + 40 && y > -40 && y < h + 40;
+    return { streamer: s, x, y, inBounds };
+  });
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={styles.root}>
-      {/* Map canvas */}
-      <div ref={containerRef} style={styles.mapCanvas} />
+    <div ref={rootRef} style={styles.root}>
+      {/* Windy iframe */}
+      <iframe
+        key={embedUrl}
+        src={embedUrl}
+        style={styles.iframe}
+        title="Windy weather map"
+        frameBorder="0"
+        allow="fullscreen"
+        allowFullScreen
+      />
 
-      {/* ── OVERLAY: Severe Storm Warning badge (top-left) ── */}
+      {/* ── OVERLAY: Streamer pins ── */}
+      {pins.map(({ streamer, x, y, inBounds }) =>
+        inBounds ? (
+          <StreamerPin
+            key={streamer.id}
+            streamer={streamer}
+            x={x}
+            y={y}
+            expanded={expandedPin === streamer.id}
+            onToggle={() => setExpandedPin(p => p === streamer.id ? null : streamer.id)}
+          />
+        ) : null,
+      )}
+
+      {/* ── OVERLAY: Storm warning badge (top-left) ── */}
       {badgeAlert && (
         <div style={styles.stormBadge}>
           <div style={styles.stormBadgePulse} />
           <div style={styles.stormBadgeInner}>
-            <span style={styles.stormBadgeType}>
-              &#9888; {badgeAlert.event.toUpperCase()}
-            </span>
+            <span style={styles.stormBadgeType}>⚠ {badgeAlert.event.toUpperCase()}</span>
             <span style={styles.stormBadgeArea}>{badgeAlert.areaDesc}</span>
-            <span
-              style={{
-                ...styles.stormBadgeSeverity,
-                color: severityBadgeColor(badgeAlert.severity),
-              }}
-            >
+            <span style={{ ...styles.stormBadgeSeverity, color: severityBadgeColor(badgeAlert.severity) }}>
               {badgeAlert.severity.toUpperCase()}
             </span>
           </div>
         </div>
       )}
 
-      {/* ── OVERLAY: Timestamp (top-right, left of nav controls) ── */}
-      <div style={styles.timestamp}>
-        Updated: {formatTimestamp(currentTime)} &#9658;&#9658;
-      </div>
-
-      {/* ── OVERLAY: Ambient weather strip (bottom-left) ── */}
-      <div style={styles.weatherStrip}>
-        &#8658; {AMBIENT.temp}&#176;F&nbsp;|&nbsp;Wind:&nbsp;{AMBIENT.windSpeed}&nbsp;mph&nbsp;{AMBIENT.windDir}
-      </div>
-
-      {/* ── OVERLAY: Claude insight chip (bottom-left, above strip) ── */}
-      {insight && (
-        <div style={styles.insightChip}>
-          <span style={styles.insightIcon}>&#9889;</span>
-          <span style={styles.insightText}>{insight.summary.slice(0, 90)}</span>
-        </div>
-      )}
-
-      {/* ── OVERLAY: YouTube stream panels (right edge) ── */}
-      <div style={styles.streamPanels}>
-        {YT_STREAMS.map((stream) => (
-          <div key={stream.id} style={{ ...styles.streamPanel, background: stream.color }}>
-            <div style={styles.streamLiveTag}>&#9679; LIVE</div>
-            <div style={styles.streamThumbArea}>
-              <span style={styles.streamPlayIcon}>&#9654;</span>
-            </div>
-            <div style={styles.streamTitle}>{stream.title}</div>
-          </div>
+      {/* ── OVERLAY: Overlay selector pills (top-centre) ── */}
+      <div style={styles.overlayBar}>
+        {OVERLAYS.map(o => (
+          <button
+            key={o.id}
+            onClick={() => handleOverlay(o.id)}
+            style={{ ...styles.overlayBtn, ...(overlay === o.id ? styles.overlayBtnActive : {}) }}
+          >
+            {o.label}
+          </button>
         ))}
       </div>
 
-      {/* ── OVERLAY: RadarPlayer timeline (bottom) ── */}
-      {activeLayers.has('radar') && radarFrames.length > 0 && (
-        <RadarPlayer
-          frames={radarFrames}
-          currentIndex={radarIndex}
-          onIndexChange={handleRadarIndexChange}
-          host={radarHost}
-        />
+      {/* ── OVERLAY: Claude insight chip (bottom-left) ── */}
+      {insight && (
+        <div style={styles.insightChip}>
+          <span style={styles.insightIcon}>⚡</span>
+          <span style={styles.insightText}>{insight.summary.slice(0, 110)}</span>
+        </div>
       )}
-
-      {/* ── Zoom level indicator ── */}
-      <div style={styles.zoomIndicator}>
-        z{mapZoom.toFixed(1)}
-      </div>
     </div>
   );
 };
@@ -435,28 +422,26 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     background: '#0a0f1a',
   },
-  mapCanvas: {
+  iframe: {
     position: 'absolute',
     inset: 0,
     width: '100%',
     height: '100%',
+    border: 'none',
   },
-
-  // ── Storm warning badge ──────────────────────────────────────────────
   stormBadge: {
     position: 'absolute',
     top: 12,
     left: 12,
     zIndex: 20,
     maxWidth: 240,
-    cursor: 'default',
+    pointerEvents: 'none',
   },
   stormBadgePulse: {
     position: 'absolute',
     inset: -4,
     borderRadius: 10,
     border: '2px solid #ff2020',
-    animation: 'none',
     opacity: 0.5,
   },
   stormBadgeInner: {
@@ -492,48 +477,40 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: '0.1em',
   },
-
-  // ── Timestamp ────────────────────────────────────────────────────────
-  timestamp: {
+  overlayBar: {
     position: 'absolute',
     top: 12,
-    right: 90,          // leave room for nav control (≈46px wide)
+    left: '50%',
+    transform: 'translateX(-50%)',
     zIndex: 20,
+    display: 'flex',
+    gap: 4,
     background: 'rgba(10, 15, 26, 0.88)',
     border: '1px solid #1a2d44',
+    borderRadius: 8,
+    padding: '4px 6px',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+  },
+  overlayBtn: {
+    padding: '3px 10px',
     borderRadius: 5,
-    padding: '4px 10px',
-    fontFamily: 'var(--font-numeric)',
-    fontSize: 11,
+    border: 'none',
+    background: 'transparent',
     color: 'var(--text-secondary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: 11,
+    cursor: 'pointer',
     letterSpacing: '0.04em',
-    backdropFilter: 'blur(6px)',
-    WebkitBackdropFilter: 'blur(6px)',
-    whiteSpace: 'nowrap',
   },
-
-  // ── Weather strip ─────────────────────────────────────────────────────
-  weatherStrip: {
-    position: 'absolute',
-    bottom: 88,         // above RadarPlayer (~72px)
-    left: 12,
-    zIndex: 20,
-    background: 'rgba(10, 15, 26, 0.90)',
-    border: '1px solid #1a2d44',
-    borderRadius: 5,
-    padding: '4px 10px',
-    fontFamily: 'var(--font-numeric)',
-    fontSize: 12,
-    color: 'var(--text-primary)',
-    letterSpacing: '0.03em',
-    backdropFilter: 'blur(6px)',
-    WebkitBackdropFilter: 'blur(6px)',
+  overlayBtnActive: {
+    background: 'var(--accent)',
+    color: '#000',
+    fontWeight: 700,
   },
-
-  // ── Claude insight chip ────────────────────────────────────────────────
   insightChip: {
     position: 'absolute',
-    bottom: 118,
+    bottom: 20,
     left: 12,
     zIndex: 20,
     background: 'rgba(10, 15, 26, 0.94)',
@@ -541,12 +518,13 @@ const styles: Record<string, React.CSSProperties> = {
     borderLeft: '3px solid #f5c518',
     borderRadius: 5,
     padding: '5px 10px',
-    maxWidth: 260,
+    maxWidth: 280,
     display: 'flex',
     alignItems: 'flex-start',
     gap: 6,
     backdropFilter: 'blur(6px)',
     WebkitBackdropFilter: 'blur(6px)',
+    pointerEvents: 'none',
   },
   insightIcon: {
     fontSize: 13,
@@ -559,82 +537,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 10,
     color: 'var(--text-secondary)',
     lineHeight: 1.45,
-  },
-
-  // ── YouTube stream panels ─────────────────────────────────────────────
-  streamPanels: {
-    position: 'absolute',
-    top: '50%',
-    right: 8,
-    transform: 'translateY(-50%)',
-    zIndex: 20,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-  },
-  streamPanel: {
-    width: 100,
-    height: 66,
-    borderRadius: 6,
-    border: '1px solid #1a2d44',
-    overflow: 'hidden',
-    position: 'relative',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  streamLiveTag: {
-    position: 'absolute',
-    top: 4,
-    left: 4,
-    background: '#ff2020',
-    color: '#fff',
-    fontFamily: 'var(--font-body)',
-    fontSize: 8,
-    fontWeight: 700,
-    padding: '1px 4px',
-    borderRadius: 3,
-    letterSpacing: '0.05em',
-    zIndex: 2,
-  },
-  streamThumbArea: {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  streamPlayIcon: {
-    fontSize: 20,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  streamTitle: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: 'rgba(10, 15, 26, 0.82)',
-    padding: '2px 5px',
-    fontFamily: 'var(--font-body)',
-    fontSize: 8,
-    color: 'var(--text-secondary)',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-
-  // ── Zoom indicator ────────────────────────────────────────────────────
-  zoomIndicator: {
-    position: 'absolute',
-    bottom: 88,
-    right: 8,
-    zIndex: 20,
-    background: 'rgba(10, 15, 26, 0.80)',
-    border: '1px solid #1a2d44',
-    borderRadius: 4,
-    padding: '2px 7px',
-    fontFamily: 'var(--font-numeric)',
-    fontSize: 10,
-    color: 'var(--text-secondary)',
   },
 };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ForecastDay } from '../types';
 
-const BRIEF_URL = '/api/brief';
+const BRIEF_URL = '/api/forecast?lat=41.97&lon=-88.19'; // Bartlett, IL 60103
 
 const WMO_DESCRIPTIONS: Record<number, string> = {
   0: 'Clear',
@@ -145,7 +145,24 @@ export const WeatherBrief: React.FC = () => {
       try {
         const res = await fetch(BRIEF_URL);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: ForecastDay[] = await res.json();
+        const raw = await res.json();
+        // Transform Open-Meteo daily format to ForecastDay[]
+        let data: ForecastDay[] = [];
+        if (raw?.daily?.time) {
+          const d = raw.daily;
+          data = (d.time as string[]).map((date: string, i: number) => ({
+            date,
+            tempMax: d.temperature_2m_max[i] ?? 0,
+            tempMin: d.temperature_2m_min[i] ?? 0,
+            precipMm: d.precipitation_sum?.[i] ?? 0,
+            precipProb: d.precipitation_probability_max?.[i] ?? 0,
+            windMax: d.windspeed_10m_max?.[i] ?? 0,
+            weatherCode: d.weathercode?.[i] ?? 0,
+            description: '',
+          }));
+        } else if (Array.isArray(raw)) {
+          data = raw as ForecastDay[];
+        }
         if (!cancelled) {
           setForecast(data.slice(0, 5));
           setLoading(false);

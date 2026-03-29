@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { WeatherAlert } from '../types';
 
-const ALERTS_URL = '/api/weather-alerts';
+const ALERTS_URL = '/api/alerts?area=ILC';
 const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
 interface UseWeatherAlertsResult {
@@ -30,8 +30,12 @@ export function useWeatherAlerts(): UseWeatherAlertsResult {
       const res = await fetch(ALERTS_URL, { signal: abortRef.current.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       const data: unknown = await res.json();
-      // Gracefully handle non-array responses
-      const normalized: WeatherAlert[] = Array.isArray(data) ? (data as WeatherAlert[]) : [];
+      // Backend returns { count, alerts: [...] }
+      const normalized: WeatherAlert[] = Array.isArray(data)
+        ? (data as WeatherAlert[])
+        : Array.isArray((data as Record<string, unknown>)?.alerts)
+          ? ((data as Record<string, unknown>).alerts as WeatherAlert[])
+          : [];
       setAlerts(normalized);
       setLastUpdate(new Date());
     } catch (err) {

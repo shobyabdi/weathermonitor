@@ -233,8 +233,8 @@ def get_forecast(
 
 @app.get("/api/air-quality")
 def get_air_quality(
-    lat: float = Query(39.5),
-    lon: float = Query(-98.35),
+    lat: float = Query(41.97),
+    lon: float = Query(-88.19),
     radius: int = Query(25000),
 ) -> dict:
     try:
@@ -325,6 +325,73 @@ def get_ai_brief(refresh: bool = Query(False)) -> dict:
         "age_seconds": 0,
         "generated_at": _brief_cache["generated_at"],
     }
+
+
+@app.get("/api/insight")
+def get_insight(refresh: bool = Query(False)) -> dict:
+    """Return a structured ClaudeInsight for the current global weather conditions."""
+    now = time.time()
+    cache_age = now - _brief_cache.get("insight_generated_at", 0)
+
+    if not refresh and _brief_cache.get("insight") and cache_age < BRIEF_CACHE_TTL:
+        return _brief_cache["insight"]
+
+    try:
+        alerts = fetch_nws_alerts(area="ILC", limit=50)
+        earthquakes = fetch_earthquakes(min_magnitude=4.0, hours=24, limit=20)
+        wildfires = fetch_wildfires(days=1)
+        tropical = fetch_tropical_storms()
+    except Exception as e:
+        logger.warning(f"Partial data fetch for insight: {e}")
+        alerts, earthquakes, wildfires, tropical = [], [], [], []
+
+    alert_summary = "; ".join(a.get("headline", "") for a in alerts[:5]) or "None"
+    eq_summary = "; ".join(f"M{e.get('magnitude')} {e.get('place')}" for e in earthquakes[:3]) or "None"
+    fire_count = len(wildfires)
+    storm_count = len(tropical)
+
+    storm_score = min(
+        10 * len(alerts) + 5 * len(earthquakes) + 3 * fire_count + 20 * storm_count,
+        100,
+    )
+
+    prompt = STORM_ANALYSIS_PROMPT.format(
+        location="Bartlett, IL 60103",
+        storm_score=storm_score,
+        alert_summary=alert_summary,
+        pressure_trend="0",
+        wind_speed="0",
+        wind_gust="0",
+        wind_dir="N",
+        precip_rate="0",
+        max_dbz="0",
+        tornado_distance_miles="N/A",
+        youtube_context="None",
+        headlines=f"Earthquakes: {eq_summary}. Wildfires: {fire_count} hotspots. Tropical storms: {storm_count}.",
+    )
+
+    try:
+        insight = analyze_storm(prompt)
+        insight["storm_score"] = storm_score
+        insight["generated_at"] = time.time()
+        _brief_cache["insight"] = insight
+        _brief_cache["insight_generated_at"] = time.time()
+        return insight
+    except Exception as e:
+        logger.error(f"Claude insight generation failed: {e}")
+        fallback = {
+            "summary": "AI analysis temporarily unavailable. Monitoring global weather feeds.",
+            "confidence": "low",
+            "expected": ["Continue monitoring conditions", "Check NWS for official guidance"],
+            "recommendation": "Monitor official NWS alerts for your area.",
+            "threat_type": "other",
+            "severity": "info",
+            "affected_region": "Global",
+            "storm_score": storm_score,
+            "generated_at": time.time(),
+            "fallback": True,
+        }
+        return fallback
 
 
 @app.post("/api/ai-analyze")
