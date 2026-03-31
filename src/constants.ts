@@ -35,18 +35,10 @@ export const WEATHER_LAYERS: LayerConfig[] = [
 ];
 
 export const REGIONS: Region[] = [
-  { name: 'Bartlett, IL',      center: [-88.19, 41.97], zoom: 9   },
-  { name: 'Chicago Metro',     center: [-87.90, 41.88], zoom: 7   },
-  { name: 'Illinois',          center: [-89.20, 40.00], zoom: 6   },
-  { name: 'USA',               center: [-98, 39],  zoom: 4   },
-  { name: 'Global',            center: [0, 20],    zoom: 2   },
-  { name: 'North America',     center: [-95, 40],  zoom: 3.5 },
-  { name: 'Gulf/Caribbean',    center: [-85, 22],  zoom: 4   },
-  { name: 'Europe',            center: [10, 52],   zoom: 4   },
-  { name: 'South/SE Asia',     center: [105, 15],  zoom: 3.5 },
-  { name: 'East Asia/Pacific', center: [145, 30],  zoom: 3.5 },
-  { name: 'Australia/Oceania', center: [140, -25], zoom: 4   },
-  { name: 'Tropics',           center: [0, 10],    zoom: 2.5 },
+  { name: 'Bartlett, IL',  center: [-88.19, 41.97], zoom: 9 },
+  { name: 'Chicago Metro', center: [-87.90, 41.88], zoom: 7 },
+  { name: 'Illinois',      center: [-89.20, 40.00], zoom: 6 },
+  { name: 'USA',           center: [-98, 39],        zoom: 4 },
 ];
 
 export const STORM_SCORE_THRESHOLD = 60;

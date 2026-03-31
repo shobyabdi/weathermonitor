@@ -15,7 +15,7 @@ const INSIGHT_URL = '/api/insight';
 
 function App() {
   const [activeRegion, setActiveRegion] = useState<Region>(REGIONS[0]);
-  const [timeFilter] = useState<TimeFilter>('24h');
+  const [timeFilter] = useState<TimeFilter>('3h');
   const [selectedAlert, setSelectedAlert] = useState<WeatherAlert | null>(null);
   const [claudeInsight, setClaudeInsight] = useState<ClaudeInsight | null>(null);
 
@@ -24,6 +24,17 @@ function App() {
   const handleRegionChange = useCallback((region: Region) => {
     setActiveRegion(region);
     setSelectedAlert(null);
+  }, []);
+
+  const refreshInsight = useCallback(async () => {
+    try {
+      const res = await fetch(`${INSIGHT_URL}?refresh=true`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ClaudeInsight = await res.json();
+      setClaudeInsight(data);
+    } catch {
+      // Silently fail
+    }
   }, []);
 
   useEffect(() => {
@@ -68,10 +79,10 @@ function App() {
 
         {/* Sidebar — 28% */}
         <div style={{ flex: '0 0 28%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', borderLeft: '1px solid var(--border)', overflowY: 'auto' }}>
-          <AIAnalysis insight={claudeInsight} />
+          <AIAnalysis insight={claudeInsight} onRefresh={refreshInsight} />
+          <WeatherBrief />
           <WeatherTools />
           <LiveStreams />
-          <WeatherBrief />
           <AlertsFeed
             alerts={alerts}
             onSelectAlert={setSelectedAlert}

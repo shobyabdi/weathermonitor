@@ -11,7 +11,7 @@ interface HeaderProps {
   lastUpdate: Date | null;
 }
 
-const TIME_FILTERS: TimeFilter[] = ['1h', '6h', '24h', '48h', '7d'];
+// Time filter fixed to 3h — no UI toggle
 
 const styles: Record<string, React.CSSProperties> = {
   header: {
@@ -150,7 +150,6 @@ export const Header: React.FC<HeaderProps> = ({
         <span style={styles.brandIcon} aria-hidden="true">&#x26A1;</span>
         <div>
           <div style={styles.brandName}>Weather Intelligence</div>
-          <div style={styles.brandSub}>Real-time Global Monitoring</div>
         </div>
       </div>
 
@@ -168,21 +167,6 @@ export const Header: React.FC<HeaderProps> = ({
           </select>
         </div>
 
-        <div style={styles.timeGroup} role="group" aria-label="Time filter">
-          {TIME_FILTERS.map(tf => (
-            <button
-              key={tf}
-              style={{
-                ...styles.timeBtn,
-                ...(tf === timeFilter ? styles.timeBtnActive : styles.timeBtnInactive),
-              }}
-              onClick={() => onTimeFilterChange(tf)}
-              aria-pressed={tf === timeFilter}
-            >
-              {tf}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div style={styles.statusRow}>

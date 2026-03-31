@@ -60,15 +60,6 @@ def analyze_storm(prompt: str) -> dict:
         raise
 
 
-def generate_brief(prompt: str) -> str:
-    """Call Ollama for the global weather brief (plain text)."""
-    try:
-        return _chat(prompt, max_tokens=500)
-    except Exception as e:
-        logger.error(f"Ollama brief generation error: {e}")
-        return "Weather brief temporarily unavailable. Please check individual data sources."
-
-
 def classify_headline(headline: str) -> dict:
     """Classify a weather headline using Ollama."""
     prompt = f'''Classify this weather headline. Return ONLY valid JSON:

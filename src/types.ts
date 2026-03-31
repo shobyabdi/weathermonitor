@@ -197,7 +197,7 @@ export interface LayerConfig {
   zoomMin: number;
 }
 
-export type TimeFilter = '1h' | '6h' | '24h' | '48h' | '7d';
+export type TimeFilter = '1h' | '3h' | '6h' | '24h' | '48h' | '7d';
 
 export interface Region {
   name: string;

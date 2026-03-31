@@ -22,8 +22,8 @@ from ingest.air_quality import fetch_air_quality
 from ingest.buoys import fetch_buoys
 from ingest.floods import fetch_river_gauges
 from ingest.news import fetch_rss_feed
-from intelligence.claude_client import generate_brief, analyze_storm
-from intelligence.prompts import GLOBAL_BRIEF_PROMPT, STORM_ANALYSIS_PROMPT
+from intelligence.claude_client import analyze_storm
+from intelligence.prompts import STORM_ANALYSIS_PROMPT
 
 try:
     from ingest.spc import fetch_spc_outlooks
@@ -90,61 +90,11 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# In-memory cache for the AI brief (15-minute TTL)
+# In-memory cache for AI insight (15-minute TTL)
 # ---------------------------------------------------------------------------
 
 _brief_cache: dict[str, Any] = {"content": None, "generated_at": 0.0}
 BRIEF_CACHE_TTL = 15 * 60
-
-
-def _build_brief_context(
-    alerts: list[dict],
-    earthquakes: list[dict],
-    wildfires: list[dict],
-    tropical: list[dict],
-) -> str:
-    critical_count = sum(1 for a in alerts if a.get("severity") == "Extreme")
-    high_count = sum(1 for a in alerts if a.get("severity") == "Severe")
-
-    tropical_summary = (
-        "; ".join(
-            f"{s['type']} {s['name']} ({s['basin']}, {s['windSpeed']} mph)"
-            for s in tropical[:5]
-        )
-        if tropical
-        else "No active tropical systems"
-    )
-
-    significant_eq = [e for e in earthquakes if e.get("magnitude", 0) >= 5.0]
-    eq_summary = (
-        "; ".join(f"M{e['magnitude']:.1f} {e['place']}" for e in significant_eq[:5])
-        if significant_eq
-        else "No significant earthquakes (M5+) in past 24h"
-    )
-
-    high_frp = sorted(wildfires, key=lambda f: f.get("frp", 0), reverse=True)[:5]
-    fire_summary = (
-        f"{len(wildfires)} active hotspots; top FRP {high_frp[0].get('frp', 0):.0f} MW"
-        if high_frp
-        else "No significant wildfire hotspots detected"
-    )
-
-    headlines = [
-        a.get("headline") or a.get("event", "")
-        for a in alerts[:10]
-        if a.get("headline") or a.get("event")
-    ]
-
-    return GLOBAL_BRIEF_PROMPT.format(
-        alert_count=len(alerts),
-        critical_count=critical_count,
-        high_count=high_count,
-        tropical_summary=tropical_summary,
-        eq_summary=eq_summary,
-        fire_summary=fire_summary,
-        anomaly_summary="See individual data feeds",
-        headlines=" | ".join(headlines) if headlines else "No major headlines",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -278,55 +228,6 @@ def get_news(
         raise HTTPException(status_code=502, detail="Failed to fetch RSS feed")
 
 
-@app.get("/api/ai-brief")
-def get_ai_brief(refresh: bool = Query(False)) -> dict:
-    now = time.time()
-    cache_age = now - _brief_cache["generated_at"]
-
-    if not refresh and _brief_cache["content"] and cache_age < BRIEF_CACHE_TTL:
-        return {
-            "brief": _brief_cache["content"],
-            "cached": True,
-            "age_seconds": int(cache_age),
-            "generated_at": _brief_cache["generated_at"],
-        }
-
-    try:
-        alerts = fetch_nws_alerts(limit=100)
-        earthquakes = fetch_earthquakes(min_magnitude=4.0, hours=24, limit=50)
-        wildfires = fetch_wildfires(days=1)
-        tropical = fetch_tropical_storms()
-    except Exception as e:
-        logger.warning(f"Partial data fetch for AI brief: {e}")
-        alerts, earthquakes, wildfires, tropical = [], [], [], []
-
-    prompt = _build_brief_context(alerts, earthquakes, wildfires, tropical)
-
-    try:
-        brief_text = generate_brief(prompt)
-    except Exception as e:
-        logger.error(f"Claude brief generation failed: {e}")
-        if _brief_cache["content"]:
-            return {
-                "brief": _brief_cache["content"],
-                "cached": True,
-                "stale": True,
-                "age_seconds": int(cache_age),
-                "generated_at": _brief_cache["generated_at"],
-            }
-        raise HTTPException(status_code=503, detail="AI brief temporarily unavailable")
-
-    _brief_cache["content"] = brief_text
-    _brief_cache["generated_at"] = time.time()
-
-    return {
-        "brief": brief_text,
-        "cached": False,
-        "age_seconds": 0,
-        "generated_at": _brief_cache["generated_at"],
-    }
-
-
 @app.get("/api/insight")
 def get_insight(refresh: bool = Query(False)) -> dict:
     """Return a structured ClaudeInsight for the current global weather conditions."""
@@ -338,22 +239,13 @@ def get_insight(refresh: bool = Query(False)) -> dict:
 
     try:
         alerts = fetch_nws_alerts(area="ILC", limit=50)
-        earthquakes = fetch_earthquakes(min_magnitude=4.0, hours=24, limit=20)
-        wildfires = fetch_wildfires(days=1)
-        tropical = fetch_tropical_storms()
     except Exception as e:
         logger.warning(f"Partial data fetch for insight: {e}")
-        alerts, earthquakes, wildfires, tropical = [], [], [], []
+        alerts = []
 
     alert_summary = "; ".join(a.get("headline", "") for a in alerts[:5]) or "None"
-    eq_summary = "; ".join(f"M{e.get('magnitude')} {e.get('place')}" for e in earthquakes[:3]) or "None"
-    fire_count = len(wildfires)
-    storm_count = len(tropical)
 
-    storm_score = min(
-        10 * len(alerts) + 5 * len(earthquakes) + 3 * fire_count + 20 * storm_count,
-        100,
-    )
+    storm_score = min(10 * len(alerts), 100)
 
     prompt = STORM_ANALYSIS_PROMPT.format(
         location="Bartlett, IL 60103",
@@ -366,8 +258,6 @@ def get_insight(refresh: bool = Query(False)) -> dict:
         precip_rate="0",
         max_dbz="0",
         tornado_distance_miles="N/A",
-        youtube_context="None",
-        headlines=f"Earthquakes: {eq_summary}. Wildfires: {fire_count} hotspots. Tropical storms: {storm_count}.",
     )
 
     try:

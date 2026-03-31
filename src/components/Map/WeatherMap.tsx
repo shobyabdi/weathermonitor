@@ -1,10 +1,10 @@
 /**
  * WeatherMap.tsx
  * Embeds the Windy.com interactive weather map via iframe.
- * Streamer pins, storm badge, and Claude insight overlay on top of the iframe.
+ * Fixed streamer dock, storm badge, and Claude insight overlay on top of the iframe.
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import type { WeatherAlert, Region, ClaudeInsight } from '@/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -23,28 +23,32 @@ export interface WeatherMapProps {
   radarHost?: string;
 }
 
-// ── Streamer definitions (approximate home-base / typical chase area) ──────────
+// ── Streamers ─────────────────────────────────────────────────────────────────
 
 interface Streamer {
   id: string;
   name: string;
   initials: string;
   color: string;
-  lat: number;
-  lon: number;
-  embedSrc: string;
+  location: string;
   ytUrl: string;
 }
 
 const STREAMERS: Streamer[] = [
   {
+    id: 'featured',
+    name: 'Featured Live',
+    initials: '⚡',
+    color: '#ffdd00',
+    location: 'Live',
+    ytUrl: 'https://www.youtube.com/watch?v=WgS3j51gzs8',
+  },
+  {
     id: 'reed',
     name: 'Reed Timmer',
     initials: 'RT',
     color: '#ff4444',
-    lat: 35.22,
-    lon: -97.44, // Norman, OK
-    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCV6hWxB0-u_IX7e-h4fEBAw&autoplay=1&rel=0',
+    location: 'Norman, OK',
     ytUrl: 'https://www.youtube.com/@ReedTimmerWx/streams',
   },
   {
@@ -52,9 +56,7 @@ const STREAMERS: Streamer[] = [
     name: "Ryan Hall Y'all",
     initials: 'RH',
     color: '#4488ff',
-    lat: 34.73,
-    lon: -86.59, // Huntsville, AL
-    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCJHAT3Uvv-g3I8H3GhHWV7w&autoplay=1&rel=0',
+    location: 'Huntsville, AL',
     ytUrl: 'https://www.youtube.com/@RyanHallYall/streams',
   },
   {
@@ -62,54 +64,34 @@ const STREAMERS: Streamer[] = [
     name: 'Connor Croff',
     initials: 'CC',
     color: '#44dd88',
-    lat: 37.68,
-    lon: -97.34, // Wichita, KS — Connor's typical area
-    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCb0U1g5r4kH_NDMGiGRhysA&autoplay=1&rel=0',
-    ytUrl: 'https://www.youtube.com/@ConnorCroff',
+    location: 'Wichita, KS',
+    ytUrl: 'https://www.youtube.com/@ConnorCroff/streams',
   },
   {
     id: 'live-storms',
-    name: 'Live Storms Media',
+    name: 'Live Storms',
     initials: 'LS',
     color: '#ff8800',
-    lat: 36.15,
-    lon: -95.99, // Tulsa, OK
-    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UC1nJElGcVcTpeZJVyxEbzJw&autoplay=1&rel=0',
-    ytUrl: 'https://www.youtube.com/@LiveStormsMedia',
+    location: 'Tulsa, OK',
+    ytUrl: 'https://www.youtube.com/@LiveStormsMedia/streams',
   },
   {
     id: 'brandon',
     name: 'WxChasing',
     initials: 'WX',
     color: '#cc44ff',
-    lat: 30.45,
-    lon: -91.19, // Baton Rouge, LA — Brandon Clement's base
-    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCD3KREyo3IqCLBC-4khGgIw&autoplay=1&rel=0',
-    ytUrl: 'https://www.youtube.com/@WxChasing',
+    location: 'Baton Rouge, LA',
+    ytUrl: 'https://www.youtube.com/@WxChasing/streams',
+  },
+  {
+    id: 'nbc5',
+    name: 'NBC5 Chicago',
+    initials: 'N5',
+    color: '#00aaff',
+    location: 'Chicago, IL',
+    ytUrl: 'https://www.youtube.com/@nbcchicago/streams',
   },
 ];
-
-// ── Mercator lat/lon → pixel ──────────────────────────────────────────────────
-
-function latLonToPixel(
-  lat: number,
-  lon: number,
-  centerLat: number,
-  centerLon: number,
-  zoom: number,
-  w: number,
-  h: number,
-): { x: number; y: number } {
-  const scale = 256 * Math.pow(2, zoom);
-  const dLon = lon - centerLon;
-  const x = w / 2 + (dLon / 360) * scale;
-  const latRad = (lat * Math.PI) / 180;
-  const cLatRad = (centerLat * Math.PI) / 180;
-  const yM = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
-  const cYM = Math.log(Math.tan(Math.PI / 4 + cLatRad / 2));
-  const y = h / 2 - ((yM - cYM) / (2 * Math.PI)) * scale;
-  return { x, y };
-}
 
 // ── Windy embed URL builder ────────────────────────────────────────────────────
 
@@ -148,8 +130,6 @@ function severityBadgeColor(severity: string): string {
   }
 }
 
-// ── Overlay selectors ─────────────────────────────────────────────────────────
-
 const OVERLAYS = [
   { id: 'radar',  label: 'Radar'  },
   { id: 'wind',   label: 'Wind'   },
@@ -159,174 +139,128 @@ const OVERLAYS = [
   { id: 'cape',   label: 'CAPE'   },
 ];
 
-// ── StreamerPin ───────────────────────────────────────────────────────────────
+// ── StreamerDock ──────────────────────────────────────────────────────────────
 
-const StreamerPin: React.FC<{
-  streamer: Streamer;
-  x: number;
-  y: number;
-  expanded: boolean;
-  onToggle: () => void;
-}> = ({ streamer, x, y, expanded, onToggle }) => {
-  const PIN = 36;
-  const POPUP_W = 280;
-  const POPUP_H = 168;
+const StreamerDock: React.FC<{
+  streamers: Streamer[];
+  expanded: string | null;
+  onToggle: (id: string) => void;
+}> = ({ streamers, expanded, onToggle }) => {
+  const POPUP_W = 220;
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        left: x - PIN / 2,
-        top: y - PIN / 2,
-        zIndex: 30,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        pointerEvents: 'auto',
-      }}
-    >
-      {/* Expanded YouTube embed popup */}
-      {expanded && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: PIN + 6,
-            left: -(POPUP_W / 2 - PIN / 2),
-            width: POPUP_W,
-            height: POPUP_H + 28,
-            background: '#0a0f1a',
-            border: `1px solid ${streamer.color}`,
-            borderRadius: 8,
-            overflow: 'hidden',
-            boxShadow: `0 4px 24px rgba(0,0,0,0.7)`,
-          }}
-        >
-          {/* Header */}
-          <div
+    <div style={dockStyles.dock}>
+      {streamers.map(s => (
+        <div key={s.id} style={dockStyles.item}>
+          {/* Expanded popup — opens to the left */}
+          {expanded === s.id && (
+            <div style={{
+              position: 'absolute',
+              right: 48,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: POPUP_W,
+              background: '#0a0f1a',
+              border: `1px solid ${s.color}`,
+              borderRadius: 8,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.8)',
+              zIndex: 40,
+              padding: '10px 12px',
+            }}>
+              <div style={{ fontFamily: 'var(--font-header)', fontSize: 10, color: s.color, fontWeight: 700, marginBottom: 8 }}>
+                {s.name.toUpperCase()} — {s.location}
+              </div>
+              <a
+                href={s.ytUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'block',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 11,
+                  color: '#aac4dc',
+                  textDecoration: 'none',
+                  padding: '6px 10px',
+                  background: 'rgba(255,255,255,0.06)',
+                  borderRadius: 5,
+                  textAlign: 'center' as const,
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                ▶ Watch Live on YouTube ↗
+              </a>
+            </div>
+          )}
+
+          {/* Pin button */}
+          <button
+            onClick={() => onToggle(s.id)}
+            title={`${s.name} — ${s.location}`}
             style={{
-              padding: '4px 8px',
-              background: 'rgba(0,0,0,0.6)',
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              border: `2px solid ${s.color}`,
+              background: expanded === s.id ? s.color : 'rgba(10,15,26,0.92)',
+              color: expanded === s.id ? '#000' : s.color,
+              fontFamily: 'var(--font-header)',
+              fontSize: 9,
+              fontWeight: 700,
+              cursor: 'pointer',
               display: 'flex',
-              justifyContent: 'space-between',
+              flexDirection: 'column',
               alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              boxShadow: `0 0 8px ${s.color}44`,
+              padding: 0,
+              position: 'relative',
+              zIndex: 41,
             }}
           >
-            <span style={{ fontFamily: 'var(--font-header)', fontSize: 10, color: streamer.color, fontWeight: 700 }}>
-              ▶ {streamer.name.toUpperCase()}
-            </span>
-            <a
-              href={streamer.ytUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontFamily: 'var(--font-body)', fontSize: 9, color: '#aac4dc', textDecoration: 'none' }}
-              onClick={e => e.stopPropagation()}
-            >
-              Open ↗
-            </a>
-          </div>
-          <iframe
-            src={streamer.embedSrc}
-            width={POPUP_W}
-            height={POPUP_H}
-            style={{ display: 'block', border: 'none' }}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title={streamer.name}
-          />
+            <span>{s.initials}</span>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#ff2020', display: 'block' }} />
+          </button>
         </div>
-      )}
-
-      {/* Pin dot */}
-      <button
-        onClick={onToggle}
-        title={streamer.name}
-        style={{
-          width: PIN,
-          height: PIN,
-          borderRadius: '50%',
-          border: `2px solid ${streamer.color}`,
-          background: expanded ? streamer.color : 'rgba(10,15,26,0.92)',
-          color: expanded ? '#000' : streamer.color,
-          fontFamily: 'var(--font-header)',
-          fontSize: 10,
-          fontWeight: 700,
-          cursor: 'pointer',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 1,
-          boxShadow: `0 0 8px ${streamer.color}55`,
-          padding: 0,
-          lineHeight: 1,
-        }}
-      >
-        <span style={{ fontSize: 9 }}>{streamer.initials}</span>
-        {/* Pulsing LIVE dot */}
-        <span
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: '#ff2020',
-            display: 'block',
-          }}
-        />
-      </button>
-
-      {/* Label below pin */}
-      <div
-        style={{
-          marginTop: 3,
-          background: 'rgba(10,15,26,0.82)',
-          border: `1px solid ${streamer.color}44`,
-          borderRadius: 4,
-          padding: '1px 5px',
-          fontFamily: 'var(--font-body)',
-          fontSize: 8,
-          color: streamer.color,
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-        }}
-      >
-        {streamer.name}
-      </div>
+      ))}
     </div>
   );
+};
+
+const dockStyles: Record<string, React.CSSProperties> = {
+  dock: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 30,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    pointerEvents: 'auto',
+  },
+  item: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const WeatherMap: React.FC<WeatherMapProps> = ({ alerts, region, insight }) => {
-  const rootRef = useRef<HTMLDivElement>(null);
   const [overlay, setOverlay] = useState('radar');
   const [embedUrl, setEmbedUrl] = useState(() => buildWindyUrl(region, 'radar'));
   const [alertBadgeIndex, setAlertBadgeIndex] = useState(0);
   const [expandedPin, setExpandedPin] = useState<string | null>(null);
-  const [containerSize, setContainerSize] = useState({ w: 900, h: 600 });
 
-  // Track container size for pin positioning
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver(() => {
-      setContainerSize({ w: el.offsetWidth, h: el.offsetHeight });
-    });
-    obs.observe(el);
-    setContainerSize({ w: el.offsetWidth, h: el.offsetHeight });
-    return () => obs.disconnect();
-  }, []);
-
-  // Rebuild embed URL when region or overlay changes
   useEffect(() => {
     setEmbedUrl(buildWindyUrl(region, overlay));
-    setExpandedPin(null); // close any open popup on region change
+    setExpandedPin(null);
   }, [region, overlay]);
 
-  // Rotating storm badge
-  const severeAlerts = alerts.filter(
-    (a) => a.severity === 'Extreme' || a.severity === 'Severe',
-  );
+  const severeAlerts = alerts.filter(a => a.severity === 'Extreme' || a.severity === 'Severe');
   useEffect(() => {
     if (severeAlerts.length === 0) return;
     const id = setInterval(() => setAlertBadgeIndex(i => (i + 1) % severeAlerts.length), 4000);
@@ -335,21 +269,12 @@ export const WeatherMap: React.FC<WeatherMapProps> = ({ alerts, region, insight 
   const badgeAlert = severeAlerts[alertBadgeIndex] ?? null;
 
   const handleOverlay = useCallback((id: string) => setOverlay(id), []);
+  const handleTogglePin = useCallback((id: string) => {
+    setExpandedPin(p => p === id ? null : id);
+  }, []);
 
-  // Compute pin pixel positions from the region's center + zoom
-  const [centerLon, centerLat] = region.center;
-  const { w, h } = containerSize;
-
-  const pins = STREAMERS.map(s => {
-    const { x, y } = latLonToPixel(s.lat, s.lon, centerLat, centerLon, region.zoom, w, h);
-    const inBounds = x > -40 && x < w + 40 && y > -40 && y < h + 40;
-    return { streamer: s, x, y, inBounds };
-  });
-
-  // ── render ─────────────────────────────────────────────────────────────────
   return (
-    <div ref={rootRef} style={styles.root}>
-      {/* Windy iframe */}
+    <div style={styles.root}>
       <iframe
         key={embedUrl}
         src={embedUrl}
@@ -360,21 +285,14 @@ export const WeatherMap: React.FC<WeatherMapProps> = ({ alerts, region, insight 
         allowFullScreen
       />
 
-      {/* ── OVERLAY: Streamer pins ── */}
-      {pins.map(({ streamer, x, y, inBounds }) =>
-        inBounds ? (
-          <StreamerPin
-            key={streamer.id}
-            streamer={streamer}
-            x={x}
-            y={y}
-            expanded={expandedPin === streamer.id}
-            onToggle={() => setExpandedPin(p => p === streamer.id ? null : streamer.id)}
-          />
-        ) : null,
-      )}
+      {/* ── Streamer dock (fixed right side) ── */}
+      <StreamerDock
+        streamers={STREAMERS}
+        expanded={expandedPin}
+        onToggle={handleTogglePin}
+      />
 
-      {/* ── OVERLAY: Storm warning badge (top-left) ── */}
+      {/* ── Storm warning badge (top-left) ── */}
       {badgeAlert && (
         <div style={styles.stormBadge}>
           <div style={styles.stormBadgePulse} />
@@ -388,7 +306,7 @@ export const WeatherMap: React.FC<WeatherMapProps> = ({ alerts, region, insight 
         </div>
       )}
 
-      {/* ── OVERLAY: Overlay selector pills (top-centre) ── */}
+      {/* ── Overlay selector pills (top-centre) ── */}
       <div style={styles.overlayBar}>
         {OVERLAYS.map(o => (
           <button
@@ -401,13 +319,6 @@ export const WeatherMap: React.FC<WeatherMapProps> = ({ alerts, region, insight 
         ))}
       </div>
 
-      {/* ── OVERLAY: Claude insight chip (bottom-left) ── */}
-      {insight && (
-        <div style={styles.insightChip}>
-          <span style={styles.insightIcon}>⚡</span>
-          <span style={styles.insightText}>{insight.summary.slice(0, 110)}</span>
-        </div>
-      )}
     </div>
   );
 };

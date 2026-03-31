@@ -39,6 +39,7 @@ function severityBorderClass(severity: WeatherAlert['severity']): string {
 function timeFilterToMs(tf: TimeFilter): number {
   switch (tf) {
     case '1h':  return 60 * 60 * 1000;
+    case '3h':  return 3 * 60 * 60 * 1000;
     case '6h':  return 6 * 60 * 60 * 1000;
     case '24h': return 24 * 60 * 60 * 1000;
     case '48h': return 48 * 60 * 60 * 1000;

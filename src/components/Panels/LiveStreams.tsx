@@ -3,51 +3,58 @@ import React, { useState } from 'react';
 interface StreamChannel {
   id: string;
   embedSrc: string;
+  ytUrl: string;
   name: string;
   description: string;
 }
 
-// Use channel live_stream embed for channels, direct video embed for specific streams
 const STORM_CHANNELS: StreamChannel[] = [
   {
-    id: 'user-stream-1',
-    embedSrc: 'https://www.youtube.com/embed/-EvkHNtNqYc?autoplay=0&rel=0',
-    name: 'Live Storm Stream',
-    description: 'Featured live stream',
-  },
-  {
-    id: 'connor-croff',
-    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCb0U1g5r4kH_NDMGiGRhysA&autoplay=0&rel=0',
-    name: 'Connor Croff',
-    description: 'Storm chaser — live coverage',
+    id: 'featured',
+    embedSrc: 'https://www.youtube.com/embed/WgS3j51gzs8?autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/watch?v=WgS3j51gzs8',
+    name: 'Featured Live Stream',
+    description: 'Live storm coverage',
   },
   {
     id: 'reed-timmer',
     embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCV6hWxB0-u_IX7e-h4fEBAw&autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/@ReedTimmerWx/streams',
     name: 'Reed Timmer',
     description: 'Storm chaser & meteorologist',
   },
   {
     id: 'ryan-hall',
     embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCJHAT3Uvv-g3I8H3GhHWV7w&autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/@RyanHallYall/streams',
     name: "Ryan Hall Y'all",
     description: 'Weather coverage & severe storms',
   },
   {
+    id: 'connor-croff',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCb0U1g5r4kH_NDMGiGRhysA&autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/@ConnorCroff/streams',
+    name: 'Connor Croff',
+    description: 'Storm chaser — live coverage',
+  },
+  {
     id: 'live-storms',
     embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UC1nJElGcVcTpeZJVyxEbzJw&autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/@LiveStormsMedia/streams',
     name: 'Live Storms Media',
     description: 'Live storm chasing coverage',
   },
   {
     id: 'wx-chasing',
     embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCD3KREyo3IqCLBC-4khGgIw&autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/@WxChasing/streams',
     name: 'WxChasing',
     description: 'Brandon Clement — storm chaser',
   },
   {
     id: 'nbc5-chicago',
     embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCuJCUEDQFRSHBHHsLFMcGQg&autoplay=0&rel=0',
+    ytUrl: 'https://www.youtube.com/@nbcchicago/streams',
     name: 'NBC5 Chicago',
     description: 'WMAQ — Chicago local news & weather',
   },

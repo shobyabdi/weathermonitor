@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import type { ClaudeInsight } from '../types';
 
 interface AIAnalysisProps {
   insight: ClaudeInsight | null;
+  onRefresh: () => void;
 }
 
 function severityBorderColor(severity: ClaudeInsight['severity']): string {
@@ -53,14 +54,15 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '6px',
   },
-  claudeBadge: {
+  refreshBtn: {
     fontFamily: 'var(--font-body)',
-    fontSize: '9px',
-    background: 'rgba(96, 208, 128, 0.15)',
-    border: '1px solid rgba(96, 208, 128, 0.4)',
-    borderRadius: '10px',
-    padding: '1px 7px',
-    color: 'var(--accent-info)',
+    fontSize: '10px',
+    background: 'transparent',
+    border: '1px solid var(--border)',
+    borderRadius: '4px',
+    padding: '2px 8px',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
     letterSpacing: '0.04em',
   },
   skeletonLine: {
@@ -187,14 +189,29 @@ const LoadingSkeleton: React.FC = () => (
   </div>
 );
 
-export const AIAnalysis: React.FC<AIAnalysisProps> = ({ insight }) => {
+export const AIAnalysis: React.FC<AIAnalysisProps> = ({ insight, onRefresh }) => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await onRefresh();
+    setRefreshing(false);
+  }, [onRefresh]);
+
   return (
     <div style={styles.container}>
       <div style={styles.panelHeader}>
         <div style={styles.title}>
           <span>&#x1F9E0;</span> AI Analysis
         </div>
-        <span style={styles.claudeBadge}>Claude 3.5</span>
+        <button
+          style={styles.refreshBtn}
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Refresh AI analysis"
+        >
+          {refreshing ? '...' : '↻ Refresh'}
+        </button>
       </div>
 
       {insight === null ? (
