@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { WeatherAlert } from '../types';
 
-const ALERTS_URL = '/api/alerts?area=ILC';
+const ALERTS_URL = '/api/alerts?area=IL';
 const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 
 interface UseWeatherAlertsResult {

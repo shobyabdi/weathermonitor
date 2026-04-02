@@ -205,12 +205,12 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ insight, onRefresh }) =>
           <span>&#x1F9E0;</span> AI Analysis
         </div>
         <button
-          style={styles.refreshBtn}
+          style={{ ...styles.refreshBtn, ...(refreshing ? { color: 'var(--accent)', borderColor: 'var(--accent)' } : {}) }}
           onClick={handleRefresh}
           disabled={refreshing}
           title="Refresh AI analysis"
         >
-          {refreshing ? '...' : '↻ Refresh'}
+          {refreshing ? '↻ Refreshing…' : '↻ Refresh'}
         </button>
       </div>
 
@@ -232,12 +232,6 @@ export const AIAnalysis: React.FC<AIAnalysisProps> = ({ insight, onRefresh }) =>
             >
               {insight.threat_type}
             </span>
-            <div style={styles.scoreBlock}>
-              <span style={{ ...styles.scoreValue, color: scoreColor(insight.storm_score) }}>
-                {insight.storm_score}
-              </span>
-              <span style={styles.scoreLabel}>/ 100</span>
-            </div>
           </div>
 
           <div style={styles.region}>

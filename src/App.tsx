@@ -3,6 +3,7 @@ import type { WeatherAlert, ClaudeInsight, Region, TimeFilter } from './types';
 import { REGIONS } from './constants';
 import { useWeatherAlerts } from './hooks/useWeatherAlerts';
 import { Header } from './components/Header';
+import { WarningBanner } from './components/WarningBanner';
 import { WeatherMap } from './components/Map/WeatherMap';
 import { AIAnalysis } from './components/AIAnalysis';
 import { WeatherBrief } from './components/WeatherBrief';
@@ -65,6 +66,8 @@ function App() {
         lastUpdate={alertsLastUpdate}
       />
 
+      <WarningBanner alerts={alerts} lastUpdate={alertsLastUpdate} />
+
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Map — 72% */}
         <div style={{ flex: '0 0 72%', position: 'relative', overflow: 'hidden' }}>
@@ -80,15 +83,17 @@ function App() {
         {/* Sidebar — 28% */}
         <div style={{ flex: '0 0 28%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', borderLeft: '1px solid var(--border)', overflowY: 'auto' }}>
           <AIAnalysis insight={claudeInsight} onRefresh={refreshInsight} />
+          <div style={{ maxHeight: 320, display: 'flex', flexDirection: 'column', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
+            <AlertsFeed
+              alerts={alerts}
+              onSelectAlert={setSelectedAlert}
+              selectedAlert={selectedAlert}
+              timeFilter={timeFilter}
+            />
+          </div>
           <WeatherBrief />
           <WeatherTools />
           <LiveStreams />
-          <AlertsFeed
-            alerts={alerts}
-            onSelectAlert={setSelectedAlert}
-            selectedAlert={selectedAlert}
-            timeFilter={timeFilter}
-          />
         </div>
       </div>
     </div>

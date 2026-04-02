@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from ingest.weather_alerts import fetch_nws_alerts
+from ingest.alert_aggregator import fetch_aggregated_alerts
 from ingest.earthquakes import fetch_earthquakes
 from ingest.wildfires import fetch_wildfires
 from ingest.radar import fetch_radar_frames
@@ -114,11 +115,11 @@ def get_alerts(
     limit: int = Query(500, ge=1, le=500),
 ) -> dict:
     try:
-        alerts = fetch_nws_alerts(area=area, severity=severity, limit=limit)
+        alerts = fetch_aggregated_alerts(area=area or "IL", limit=limit)
         return {"count": len(alerts), "alerts": alerts}
     except Exception as e:
         logger.error(f"GET /api/alerts error: {e}")
-        raise HTTPException(status_code=502, detail="Failed to fetch NWS alerts")
+        raise HTTPException(status_code=502, detail="Failed to fetch alerts")
 
 
 @app.get("/api/earthquakes")
@@ -228,6 +229,72 @@ def get_news(
         raise HTTPException(status_code=502, detail="Failed to fetch RSS feed")
 
 
+def _fetch_nws_lot_discussion() -> str:
+    """Fetch the latest Area Forecast Discussion from NWS Chicago/Romeoville (LOT)."""
+    import requests as _req
+    headers = {"User-Agent": "WeatherIntelligence/1.0 (contact@example.com)"}
+    try:
+        index = _req.get("https://api.weather.gov/products/types/AFD/locations/LOT", headers=headers, timeout=10)
+        index.raise_for_status()
+        product_url = index.json()["@graph"][0]["@id"]
+        product = _req.get(product_url, headers=headers, timeout=10)
+        product.raise_for_status()
+        text = product.json().get("productText", "")
+        # Extract KEY MESSAGES section if present, otherwise use first 1000 chars
+        import re
+        match = re.search(r'\.KEY MESSAGES\.\.\.(.*?)&&', text, re.DOTALL)
+        if match:
+            return match.group(1).strip()[:1200]
+        return text[:1000].strip()
+    except Exception as e:
+        logger.warning(f"Failed to fetch NWS LOT discussion: {e}")
+        return "None"
+
+
+def _fetch_current_conditions(lat: float = 41.97, lon: float = -88.19) -> dict:
+    """Fetch real-time conditions from Open-Meteo for Bartlett, IL."""
+    import requests as _req
+    try:
+        resp = _req.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "current": "wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,surface_pressure",
+                "hourly": "surface_pressure",
+                "past_hours": 3,
+                "forecast_hours": 0,
+                "wind_speed_unit": "mph",
+                "timezone": "America/Chicago",
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        current = data.get("current", {})
+
+        # Pressure trend: difference between now and 3 hours ago
+        pressures = data.get("hourly", {}).get("surface_pressure", [])
+        pressure_trend = round(pressures[-1] - pressures[0], 1) if len(pressures) >= 2 else 0.0
+
+        # Convert wind direction degrees to compass
+        deg = current.get("wind_direction_10m", 0)
+        dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"]
+        wind_dir = dirs[round(deg / 22.5) % 16]
+
+        return {
+            "wind_speed": round(current.get("wind_speed_10m", 0), 1),
+            "wind_gust": round(current.get("wind_gusts_10m", 0), 1),
+            "wind_dir": wind_dir,
+            "precip_rate": round(current.get("precipitation", 0), 2),
+            "pressure": round(current.get("surface_pressure", 0), 1),
+            "pressure_trend": pressure_trend,
+        }
+    except Exception as e:
+        logger.warning(f"Failed to fetch current conditions: {e}")
+        return {"wind_speed": 0, "wind_gust": 0, "wind_dir": "N", "precip_rate": 0, "pressure": 0, "pressure_trend": 0}
+
+
 @app.get("/api/insight")
 def get_insight(refresh: bool = Query(False)) -> dict:
     """Return a structured ClaudeInsight for the current global weather conditions."""
@@ -238,26 +305,41 @@ def get_insight(refresh: bool = Query(False)) -> dict:
         return _brief_cache["insight"]
 
     try:
-        alerts = fetch_nws_alerts(area="ILC", limit=50)
+        alerts = fetch_nws_alerts(area="IL", limit=50)
     except Exception as e:
         logger.warning(f"Partial data fetch for insight: {e}")
         alerts = []
 
     alert_summary = "; ".join(a.get("headline", "") for a in alerts[:5]) or "None"
 
-    storm_score = min(10 * len(alerts), 100)
+    try:
+        nbc_items = fetch_rss_feed("https://www.nbcchicago.com/tag/weather/feed/", limit=5)
+        news_context = "; ".join(item["title"] for item in nbc_items if item.get("title")) or "None"
+    except Exception:
+        news_context = "None"
+
+    nws_lot_discussion = _fetch_nws_lot_discussion()
+    cond = _fetch_current_conditions()
+
+    # Storm score: alerts + wind gusts + precip
+    alert_score = min(10 * len(alerts), 40)
+    gust_score = min(int(cond["wind_gust"] / 2), 30)
+    precip_score = min(int(cond["precip_rate"] * 20), 20)
+    pressure_score = min(int(abs(cond["pressure_trend"]) * 2), 10)
+    storm_score = min(alert_score + gust_score + precip_score + pressure_score, 100)
 
     prompt = STORM_ANALYSIS_PROMPT.format(
         location="Bartlett, IL 60103",
-        storm_score=storm_score,
         alert_summary=alert_summary,
-        pressure_trend="0",
-        wind_speed="0",
-        wind_gust="0",
-        wind_dir="N",
-        precip_rate="0",
-        max_dbz="0",
+        pressure_trend=cond["pressure_trend"],
+        wind_speed=cond["wind_speed"],
+        wind_gust=cond["wind_gust"],
+        wind_dir=cond["wind_dir"],
+        precip_rate=cond["precip_rate"],
+        max_dbz="N/A",
         tornado_distance_miles="N/A",
+        news_context=news_context,
+        nws_lot_discussion=nws_lot_discussion,
     )
 
     try:

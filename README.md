@@ -7,12 +7,13 @@ A real-time severe weather monitoring dashboard focused on the Chicago / Bartlet
 ## Features
 
 - **Live Windy Map** — full-screen Windy embed with switchable overlays: Radar, Wind, Rain, Temp, Clouds, CAPE
-- **Storm Chaser Pins** — geo-positioned YouTube live stream pins for Reed Timmer, Ryan Hall Y'all, Connor Croff, Live Storms Media, and WxChasing
-- **AI Weather Brief** — local Ollama (qwen3.5) generates a plain-English weather summary for Bartlett, IL every 10 minutes
-- **NWS Alert Feed** — live severe weather alerts for Illinois, colour-coded by severity with rotating storm badge overlay
-- **Live Streams Panel** — collapsible YouTube embeds: storm chasers + NBC5 Chicago
+- **Storm Chaser Pins** — clickable YouTube live stream embeds for Reed Timmer, Ryan Hall Y'all, Connor Croff, Live Storms Media, WxChasing, and NBC5 Chicago — play directly on the map
+- **AI Weather Analysis** — Ollama (minimax-m2.7:cloud) generates a plain-English weather summary every 10 minutes, drawing from NWS alerts, Open-Meteo real-time conditions, NBC5 Chicago RSS, and the NWS Chicago/Romeoville (LOT) Area Forecast Discussion
+- **Warning Banner** — top-of-screen alert bar for Extreme/Severe alerts only, expandable to show full description and instructions, with dismiss per alert
+- **Multi-Source Alert Feed** — aggregated alerts from NWS API, NWS LOT office products (TOR, SVR, FFW, WSW, etc.), and NBC Chicago weather RSS — polling every 2 minutes
+- **Live Streams Panel** — collapsible YouTube embeds in the sidebar: storm chasers + NBC5 Chicago
 - **Weather Tools Panel** — quick-launch links to COD Radar, SPC Outlooks, Pivotal Weather, NWS Chicago, Windy, and more
-- **Weather Brief** — 7-day forecast from Open-Meteo for Bartlett, IL
+- **5-Day Forecast** — daily forecast from Open-Meteo for Bartlett, IL
 - **PWA** — installable on Android and iOS (Add to Home Screen), runs standalone full-screen
 
 ---
@@ -24,8 +25,9 @@ A real-time severe weather monitoring dashboard focused on the Chicago / Bartlet
 | Frontend | React 18, TypeScript, Vite |
 | Map | Windy embed (`embed.windy.com`) |
 | Backend | Python 3.11+, FastAPI, Uvicorn |
-| AI | Ollama (qwen3.5:latest) running locally |
-| Data | NWS API, RainViewer, USGS, Open-Meteo, NASA FIRMS |
+| AI | Ollama (`minimax-m2.7:cloud`) |
+| Weather Data | NWS API, Open-Meteo, RainViewer, USGS |
+| Alert Sources | NWS API (IL), NWS LOT office, NBC Chicago RSS |
 | Tunnel | ngrok (for remote/mobile access) |
 
 ---
@@ -36,32 +38,38 @@ A real-time severe weather monitoring dashboard focused on the Chicago / Bartlet
 weathermonitor/
 ├── backend/
 │   ├── api/
-│   │   └── server.py          # FastAPI endpoints
-│   ├── ingest/                # Data fetchers (alerts, radar, earthquakes, etc.)
+│   │   └── server.py              # FastAPI endpoints
+│   ├── ingest/
+│   │   ├── alert_aggregator.py    # Multi-source alert aggregator
+│   │   ├── weather_alerts.py      # NWS API alerts
+│   │   ├── forecast.py            # Open-Meteo forecast
+│   │   └── ...                    # Other data fetchers
 │   ├── intelligence/
-│   │   ├── claude_client.py   # Ollama LLM client
-│   │   └── prompts.py         # AI prompt templates
+│   │   ├── claude_client.py       # Ollama LLM client
+│   │   └── prompts.py             # AI prompt templates
 │   └── main.py
 ├── src/
-│   ├── App.tsx                # Root layout
+│   ├── App.tsx                    # Root layout
 │   ├── components/
+│   │   ├── WarningBanner.tsx      # Top alert bar (Extreme/Severe only)
 │   │   ├── Map/
-│   │   │   └── WeatherMap.tsx # Windy iframe + overlays + streamer pins
+│   │   │   └── WeatherMap.tsx     # Windy iframe + overlays + streamer pins
 │   │   └── Panels/
 │   │       ├── LiveStreams.tsx
 │   │       ├── WeatherTools.tsx
-│   │       ├── AIAnalysis.tsx
-│   │       └── AlertsFeed.tsx
-│   ├── hooks/                 # Data polling hooks
+│   │       └── ...
+│   ├── hooks/
+│   │   ├── useWeatherAlerts.ts    # Polls /api/alerts every 2 min
+│   │   └── ...
 │   ├── types.ts
 │   └── constants.ts
 ├── public/
-│   ├── manifest.json          # PWA manifest
-│   ├── sw.js                  # Service worker
-│   └── icons/                 # App icons (72–512px)
+│   ├── manifest.json              # PWA manifest
+│   ├── sw.js                      # Service worker
+│   └── icons/
 ├── index.html
 ├── vite.config.ts
-└── start.sh                   # One-command startup script
+└── start.sh                       # One-command startup script
 ```
 
 ---
@@ -70,13 +78,13 @@ weathermonitor/
 
 - **Node.js** 18+
 - **Python** 3.11–3.13
-- **Ollama** running locally with `qwen3.5:latest` pulled
+- **Ollama** running locally with `minimax-m2.7:cloud` pulled
 
 Install Ollama: https://ollama.com
 
 Pull the model:
 ```bash
-ollama pull qwen3.5:latest
+ollama pull minimax-m2.7:cloud
 ```
 
 ---
@@ -126,13 +134,13 @@ Open the generated `https://` URL on your phone.
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/alerts?area=ILC` | NWS weather alerts for Illinois |
+| `GET /api/alerts?area=IL` | Aggregated alerts (NWS + LOT + NBC5) |
+| `GET /api/insight` | AI-generated weather analysis (Ollama) |
+| `GET /api/forecast?lat=&lon=` | Open-Meteo 7-day forecast |
 | `GET /api/radar` | RainViewer radar frames |
 | `GET /api/earthquakes` | USGS earthquake feed |
 | `GET /api/wildfires` | NASA FIRMS wildfire data |
 | `GET /api/tropical` | Tropical storm data |
-| `GET /api/forecast?lat=&lon=` | Open-Meteo 7-day forecast |
-| `GET /api/insight` | AI-generated weather brief (Ollama) |
 | `GET /api/news` | Weather RSS news feed |
 
 ---
@@ -141,10 +149,11 @@ Open the generated `https://` URL on your phone.
 
 Default location is **Bartlett, IL 60103** (lat: 41.97, lon: -88.19). To change:
 
-- `src/constants.ts` — update `REGIONS` array (map center/zoom)
-- `src/components/WeatherBrief.tsx` — update `BRIEF_URL` lat/lon
-- `src/hooks/useWeatherAlerts.ts` — update `area=ILC` NWS area code
-- `backend/api/server.py` — update default coords and insight location
+1. `src/constants.ts` — update `REGIONS` array (map center/zoom)
+2. `src/components/WeatherBrief.tsx` — update `BRIEF_URL` lat/lon
+3. `src/hooks/useWeatherAlerts.ts` — update `area=IL` NWS state code
+4. `backend/api/server.py` — update default coords and insight location string
+5. `backend/ingest/alert_aggregator.py` — update LOT office code if outside Chicago area
 
 ---
 

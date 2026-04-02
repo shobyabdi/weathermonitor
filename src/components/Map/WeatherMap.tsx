@@ -32,6 +32,7 @@ interface Streamer {
   color: string;
   location: string;
   ytUrl: string;
+  embedSrc: string;
 }
 
 const STREAMERS: Streamer[] = [
@@ -42,6 +43,7 @@ const STREAMERS: Streamer[] = [
     color: '#ffdd00',
     location: 'Live',
     ytUrl: 'https://www.youtube.com/watch?v=WgS3j51gzs8',
+    embedSrc: 'https://www.youtube.com/embed/WgS3j51gzs8?autoplay=1&rel=0',
   },
   {
     id: 'reed',
@@ -50,6 +52,7 @@ const STREAMERS: Streamer[] = [
     color: '#ff4444',
     location: 'Norman, OK',
     ytUrl: 'https://www.youtube.com/@ReedTimmerWx/streams',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCV6hWxB0-u_IX7e-h4fEBAw&autoplay=1&rel=0',
   },
   {
     id: 'ryan',
@@ -58,6 +61,7 @@ const STREAMERS: Streamer[] = [
     color: '#4488ff',
     location: 'Huntsville, AL',
     ytUrl: 'https://www.youtube.com/@RyanHallYall/streams',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCJHAT3Uvv-g3I8H3GhHWV7w&autoplay=1&rel=0',
   },
   {
     id: 'connor',
@@ -66,6 +70,7 @@ const STREAMERS: Streamer[] = [
     color: '#44dd88',
     location: 'Wichita, KS',
     ytUrl: 'https://www.youtube.com/@ConnorCroff/streams',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCb0U1g5r4kH_NDMGiGRhysA&autoplay=1&rel=0',
   },
   {
     id: 'live-storms',
@@ -74,6 +79,7 @@ const STREAMERS: Streamer[] = [
     color: '#ff8800',
     location: 'Tulsa, OK',
     ytUrl: 'https://www.youtube.com/@LiveStormsMedia/streams',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UC1nJElGcVcTpeZJVyxEbzJw&autoplay=1&rel=0',
   },
   {
     id: 'brandon',
@@ -82,6 +88,7 @@ const STREAMERS: Streamer[] = [
     color: '#cc44ff',
     location: 'Baton Rouge, LA',
     ytUrl: 'https://www.youtube.com/@WxChasing/streams',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCD3KREyo3IqCLBC-4khGgIw&autoplay=1&rel=0',
   },
   {
     id: 'nbc5',
@@ -90,6 +97,7 @@ const STREAMERS: Streamer[] = [
     color: '#00aaff',
     location: 'Chicago, IL',
     ytUrl: 'https://www.youtube.com/@nbcchicago/streams',
+    embedSrc: 'https://www.youtube.com/embed/live_stream?channel=UCuJCUEDQFRSHBHHsLFMcGQg&autoplay=1&rel=0',
   },
 ];
 
@@ -146,7 +154,7 @@ const StreamerDock: React.FC<{
   expanded: string | null;
   onToggle: (id: string) => void;
 }> = ({ streamers, expanded, onToggle }) => {
-  const POPUP_W = 220;
+  const POPUP_W = 320;
 
   return (
     <div style={dockStyles.dock}>
@@ -165,37 +173,41 @@ const StreamerDock: React.FC<{
               borderRadius: 8,
               boxShadow: '0 4px 24px rgba(0,0,0,0.8)',
               zIndex: 40,
-              padding: '10px 12px',
+              overflow: 'hidden',
             }}>
-              <div style={{ fontFamily: 'var(--font-header)', fontSize: 10, color: s.color, fontWeight: 700, marginBottom: 8 }}>
-                {s.name.toUpperCase()} — {s.location}
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px' }}>
+                <div style={{ fontFamily: 'var(--font-header)', fontSize: 10, color: s.color, fontWeight: 700 }}>
+                  {s.name.toUpperCase()}
+                </div>
+                <a
+                  href={s.ytUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ fontFamily: 'var(--font-body)', fontSize: 10, color: '#aac4dc', textDecoration: 'none' }}
+                >
+                  ↗ YT
+                </a>
               </div>
-              <a
-                href={s.ytUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 11,
-                  color: '#aac4dc',
-                  textDecoration: 'none',
-                  padding: '6px 10px',
-                  background: 'rgba(255,255,255,0.06)',
-                  borderRadius: 5,
-                  textAlign: 'center' as const,
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                ▶ Watch Live on YouTube ↗
-              </a>
+              {/* Embed */}
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#000' }}>
+                <iframe
+                  src={s.embedSrc}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title={s.name}
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
             </div>
           )}
 
           {/* Pin button */}
           <button
             onClick={() => onToggle(s.id)}
-            title={`${s.name} — ${s.location}`}
+            title={s.name}
             style={{
               width: 36,
               height: 36,
